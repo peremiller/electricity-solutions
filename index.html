@@ -134,6 +134,60 @@
     align-self: flex-start;
   }
   .toggle:hover { color: var(--txt); border-color: var(--accent-2); }
+  .card { cursor: pointer; transition: border-color .15s, transform .05s; }
+  .card:hover { border-color: var(--accent-2); }
+  .card:active { transform: scale(.995); }
+  .card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+  .card:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .cardhint { color: var(--grey); font-size: 12px; margin-top: 2px; }
+
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(5,8,18,.55);
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40;
+  }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+  .detail {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 46vw; max-width: 640px;
+    background: linear-gradient(180deg, #131c38, #0e1530);
+    border-left: 1px solid var(--line); box-shadow: -20px 0 50px rgba(0,0,0,.45);
+    padding: 22px 24px 40px; overflow-y: auto; z-index: 50;
+    transform: translateX(100%); transition: transform .22s ease;
+  }
+  .detail.open { transform: translateX(0); }
+  .detail-head { display: flex; justify-content: space-between; align-items: center; }
+  .detail-close {
+    background: var(--bg-soft); border: 1px solid var(--line); color: var(--muted);
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 15px;
+  }
+  .detail-close:hover { color: var(--txt); border-color: var(--red); }
+  .detail-id { color: var(--grey); font-size: 12px; margin-top: 14px; font-variant-numeric: tabular-nums; }
+  .detail-title { font-size: 22px; line-height: 1.25; margin: 4px 0 12px; }
+  .detail-cost {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 10px;
+  }
+  .detail-cost > div {
+    background: #0e1530; border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+  }
+  .dc-n { font-size: 20px; font-weight: 700; }
+  .dc-l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .detail-prog { height: 8px; margin: 6px 0 8px; }
+  .detail-sec {
+    margin: 20px 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .7px;
+    color: var(--accent-2); font-weight: 700;
+  }
+  .dsubs { display: flex; flex-direction: column; gap: 8px; }
+  .dsub {
+    display: flex; align-items: center; gap: 12px; justify-content: space-between;
+    background: #0e1530; border: 1px solid var(--line); border-radius: 11px; padding: 11px 12px;
+  }
+  .dsub-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+  .dsub-txt { font-size: 14px; }
+  .dsub.done .dsub-txt { text-decoration: line-through; color: var(--grey); }
+  .dsub-cost { color: var(--accent); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .detail-note { color: var(--grey); font-size: 12px; line-height: 1.5; margin-top: 18px; }
+  @media (max-width: 760px) {
+    .detail { width: 100vw; max-width: none; }
+  }
   .sentinel { height: 1px; }
   .empty { text-align: center; color: var(--muted); padding: 60px 0; }
   footer { text-align: center; color: var(--grey); font-size: 12px; padding: 30px 0 50px; }
@@ -192,6 +246,9 @@
   <div class="empty" id="empty" style="display:none;">No solutions match your filters.</div>
   <div class="sentinel" id="sentinel"></div>
 </main>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="detail" id="detail" aria-live="polite"></aside>
 
 <footer>VoltDown · Generated locally in your browser · Status changes saved to this device only.</footer>
 
@@ -505,6 +562,15 @@ const SCOPES = [
 
 const IMPACTS = ["High", "High", "Medium", "Medium", "Medium", "Low"];
 const COSTS = ["$", "$$", "$$$"];
+// Illustrative per-subtask cost ranges (USD) by the solution's cost tier.
+const COST_RANGE = { "$": [2000, 25000], "$$": [25000, 250000], "$$$": [250000, 2500000] };
+const COST_TIER_LABEL = { "$": "Low cost", "$$": "Medium cost", "$$$": "High cost" };
+function formatMoney(n) {
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M";
+  if (n >= 1e3) return "$" + Math.round(n / 1e3) + "K";
+  return "$" + n;
+}
+function solCost(sol) { return sol.subs.reduce((a, s) => a + (s.cost || 0), 0); }
 
 const SUBTASK_BANK = {
   generic: [
@@ -567,7 +633,9 @@ function generate() {
       if (r > 0.92) st = "done";
       else if (r > 0.78) st = "blocked";
       else if (r > 0.5) st = "doing";
-      subs.push({ text, status: st });
+      const [lo, hi] = COST_RANGE[cost];
+      const subCost = Math.round((lo + rng() * (hi - lo)) / 500) * 500;
+      subs.push({ text, status: st, cost: subCost });
     }
     out.push({
       id,
@@ -651,14 +719,8 @@ function filteredSorted() {
 
 function cardHTML(sol) {
   const p = solProgress(sol);
-  const subsHTML = sol.subs.map((s, idx) => {
-    const st = p.st[idx];
-    return `<div class="sub ${st === "done" ? "done" : ""}">
-      <span class="stxt">${escapeHTML(s.text)}</span>
-      <button class="status-btn s-${st}" data-sol="${sol.id}" data-sub="${idx}">${STATUS_LABEL[st]}</button>
-    </div>`;
-  }).join("");
-  return `<div class="card" data-id="${sol.id}">
+  const active = currentSolId === sol.id ? " active" : "";
+  return `<div class="card${active}" data-id="${sol.id}" tabindex="0" role="button" aria-label="Open details for ${escapeHTML(sol.title)}">
     <div class="top">
       <span class="cat" style="color:${sol.color}">${escapeHTML(sol.cat)}</span>
       <span class="idtag">#${String(sol.id).padStart(4, "0")}</span>
@@ -666,12 +728,11 @@ function cardHTML(sol) {
     <div class="title">${escapeHTML(sol.title)}</div>
     <div class="meta">
       <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
-      <span class="pill cost">${sol.cost}</span>
+      <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative">${formatMoney(solCost(sol))}</span>
       <div class="progress-mini"><span style="width:${p.pct}%"></span></div>
       <span class="idtag">${p.done}/${p.total}</span>
     </div>
-    <div class="subs">${subsHTML}</div>
-    <button class="toggle">▸ Show ${sol.subs.length} subtasks</button>
+    <div class="cardhint">${sol.subs.length} subtasks · click for details ›</div>
   </div>`;
 }
 
@@ -756,9 +817,11 @@ function currentRows() {
         category: sol.cat,
         solution: sol.title,
         impact: sol.impact,
-        cost: sol.cost,
+        cost_tier: sol.cost,
+        solution_est_cost: solCost(sol),
         subtask_index: idx + 1,
         subtask: s.text,
+        subtask_est_cost: s.cost,
         status: STATUS_LABEL[subStatus(sol.id, idx, s.status)]
       });
     });
@@ -775,14 +838,15 @@ function download(filename, text, type) {
 }
 document.getElementById("exportJson").addEventListener("click", () => {
   const data = SOLUTIONS.map(sol => ({
-    id: sol.id, category: sol.cat, title: sol.title, impact: sol.impact, cost: sol.cost,
-    subtasks: sol.subs.map((s, idx) => ({ task: s.text, status: STATUS_LABEL[subStatus(sol.id, idx, s.status)] }))
+    id: sol.id, category: sol.cat, title: sol.title, impact: sol.impact,
+    cost_tier: sol.cost, est_total_cost: solCost(sol),
+    subtasks: sol.subs.map((s, idx) => ({ task: s.text, est_cost: s.cost, status: STATUS_LABEL[subStatus(sol.id, idx, s.status)] }))
   }));
   download("voltdown-solutions.json", JSON.stringify(data, null, 2), "application/json");
 });
 document.getElementById("exportCsv").addEventListener("click", () => {
   const rows = currentRows();
-  const cols = ["solution_id", "category", "solution", "impact", "cost", "subtask_index", "subtask", "status"];
+  const cols = ["solution_id", "category", "solution", "impact", "cost_tier", "solution_est_cost", "subtask_index", "subtask", "subtask_est_cost", "status"];
   const esc = v => `"${String(v).replace(/"/g, '""')}"`;
   const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => esc(r[c])).join(","))).join("\r\n");
   download("voltdown-solutions.csv", csv, "text/csv");
@@ -793,35 +857,106 @@ document.getElementById("reset").addEventListener("click", () => {
   }
 });
 
-grid.addEventListener("click", e => {
-  const toggle = e.target.closest(".toggle");
-  if (toggle) {
-    const card = toggle.closest(".card");
-    card.classList.toggle("open");
-    const sol = SOLUTIONS[+card.dataset.id - 1];
-    toggle.textContent = card.classList.contains("open")
-      ? "▾ Hide subtasks" : `▸ Show ${sol.subs.length} subtasks`;
-    return;
-  }
-  const btn = e.target.closest(".status-btn");
-  if (btn) {
-    const solId = +btn.dataset.sol, subIdx = +btn.dataset.sub;
-    const sol = SOLUTIONS[solId - 1];
-    const cur = subStatus(solId, subIdx, sol.subs[subIdx].status);
-    const next = STATUS_NEXT[cur];
-    setSubStatus(solId, subIdx, next);
-    // update this button
-    btn.className = "status-btn s-" + next;
-    btn.textContent = STATUS_LABEL[next];
-    btn.closest(".sub").classList.toggle("done", next === "done");
-    // update mini progress on the card
+/* ---------- Master–detail panel ---------- */
+let currentSolId = null;
+const detail = document.getElementById("detail");
+const backdrop = document.getElementById("backdrop");
+
+function openDetail(solId) {
+  const prev = currentSolId;
+  currentSolId = solId;
+  renderDetail();
+  detail.classList.add("open");
+  backdrop.classList.add("open");
+  document.body.classList.add("detail-open");
+  // refresh active highlight on cards
+  if (prev) { const pc = grid.querySelector(`.card[data-id="${prev}"]`); if (pc) pc.classList.remove("active"); }
+  const cc = grid.querySelector(`.card[data-id="${solId}"]`); if (cc) cc.classList.add("active");
+  detail.scrollTop = 0;
+}
+function closeDetail() {
+  detail.classList.remove("open");
+  backdrop.classList.remove("open");
+  document.body.classList.remove("detail-open");
+  if (currentSolId) { const c = grid.querySelector(`.card[data-id="${currentSolId}"]`); if (c) c.classList.remove("active"); }
+  currentSolId = null;
+}
+
+function renderDetail() {
+  if (!currentSolId) return;
+  const sol = SOLUTIONS[currentSolId - 1];
+  const p = solProgress(sol);
+  const total = solCost(sol);
+  const rows = sol.subs.map((s, idx) => {
+    const st = p.st[idx];
+    return `<div class="dsub ${st === "done" ? "done" : ""}">
+      <div class="dsub-main">
+        <span class="dsub-txt">${escapeHTML(s.text)}</span>
+        <span class="dsub-cost" title="Illustrative cost estimate">${formatMoney(s.cost)}</span>
+      </div>
+      <button class="status-btn s-${st}" data-sub="${idx}">${STATUS_LABEL[st]}</button>
+    </div>`;
+  }).join("");
+  detail.innerHTML = `
+    <div class="detail-head">
+      <span class="cat" style="color:${sol.color}">${escapeHTML(sol.cat)}</span>
+      <button class="detail-close" id="detailClose" aria-label="Close details">✕</button>
+    </div>
+    <div class="detail-id">Solution #${String(sol.id).padStart(4, "0")}</div>
+    <h2 class="detail-title">${escapeHTML(sol.title)}</h2>
+    <div class="meta">
+      <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
+      <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative">${COST_TIER_LABEL[sol.cost]}</span>
+    </div>
+    <div class="detail-cost">
+      <div><div class="dc-n">${formatMoney(total)}</div><div class="dc-l">Est. total cost</div></div>
+      <div><div class="dc-n">${p.done}/${p.total}</div><div class="dc-l">Subtasks done</div></div>
+      <div><div class="dc-n">${p.pct}%</div><div class="dc-l">Complete</div></div>
+    </div>
+    <div class="progress-mini detail-prog"><span style="width:${p.pct}%"></span></div>
+    <div class="detail-sec">Subtasks &amp; cost per task</div>
+    <div class="dsubs">${rows}</div>
+    <p class="detail-note">Cost figures and statuses are illustrative seeded estimates, not sourced data — click a status to advance it (To-do → In progress → Done → Blocked).</p>`;
+}
+
+function cycleSub(solId, subIdx) {
+  const sol = SOLUTIONS[solId - 1];
+  const cur = subStatus(solId, subIdx, sol.subs[subIdx].status);
+  const next = STATUS_NEXT[cur];
+  setSubStatus(solId, subIdx, next);
+  // update the card's mini progress in the grid
+  const card = grid.querySelector(`.card[data-id="${solId}"]`);
+  if (card) {
     const p = solProgress(sol);
-    const card = btn.closest(".card");
     card.querySelector(".progress-mini > span").style.width = p.pct + "%";
     card.querySelector(".meta .idtag").textContent = `${p.done}/${p.total}`;
-    renderStats();
+  }
+  renderStats();
+}
+
+// Clicking a card opens its detail panel
+grid.addEventListener("click", e => {
+  const card = e.target.closest(".card");
+  if (card) openDetail(+card.dataset.id);
+});
+grid.addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") {
+    const card = e.target.closest(".card");
+    if (card) { e.preventDefault(); openDetail(+card.dataset.id); }
   }
 });
+
+// Status changes + close, inside the detail panel
+detail.addEventListener("click", e => {
+  if (e.target.closest("#detailClose")) { closeDetail(); return; }
+  const btn = e.target.closest(".status-btn");
+  if (btn && currentSolId) {
+    cycleSub(currentSolId, +btn.dataset.sub);
+    renderDetail();
+  }
+});
+backdrop.addEventListener("click", closeDetail);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
 
 /* ---------- Infinite scroll ---------- */
 const sentinel = document.getElementById("sentinel");
