@@ -107,6 +107,9 @@
   .pill.impact-High { color: #0b1020; background: var(--green); border-color: var(--green); }
   .pill.impact-Medium { color: #0b1020; background: var(--amber); border-color: var(--amber); }
   .pill.impact-Low { color: var(--muted); }
+  .pill.feas-High { color: #0b1020; background: var(--accent-2); border-color: var(--accent-2); }
+  .pill.feas-Medium { color: #0b1020; background: #7da7ff; border-color: #7da7ff; }
+  .pill.feas-Low { color: var(--muted); }
   .pill.cost { color: var(--accent); border-color: #4a3f10; background: #221c06; }
   .progress-mini { flex: 1 1 90px; height: 6px; border-radius: 6px; background: #0d1430; overflow: hidden; min-width: 60px; }
   .progress-mini > span { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--accent-2)); }
@@ -163,8 +166,9 @@
   .detail-id { color: var(--grey); font-size: 12px; margin-top: 14px; font-variant-numeric: tabular-nums; }
   .detail-title { font-size: 22px; line-height: 1.25; margin: 4px 0 12px; }
   .detail-cost {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 10px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 16px 0 10px;
   }
+  .dc-sub { font-size: 12px; color: var(--muted); font-weight: 600; }
   .detail-cost > div {
     background: #0e1530; border: 1px solid var(--line); border-radius: 12px; padding: 12px;
   }
@@ -230,6 +234,8 @@
       <option value="progress-asc">Progress: Low → High</option>
       <option value="progress-desc">Progress: High → Low</option>
       <option value="impact">Impact: High first</option>
+      <option value="feasibility">Feasibility: High first</option>
+      <option value="quickwins">Quick wins (impact × feasibility)</option>
     </select>
     <button class="reset" id="exportJson">Export JSON</button>
     <button class="reset" id="exportCsv">Export CSV</button>
@@ -571,6 +577,7 @@ function formatMoney(n) {
   return "$" + n;
 }
 function solCost(sol) { return sol.subs.reduce((a, s) => a + (s.cost || 0), 0); }
+function feasBand(n) { return n >= 75 ? "High" : n >= 50 ? "Medium" : "Low"; }
 
 const SUBTASK_BANK = {
   generic: [
@@ -637,6 +644,8 @@ function generate() {
       const subCost = Math.round((lo + rng() * (hi - lo)) / 500) * 500;
       subs.push({ text, status: st, cost: subCost });
     }
+    // Illustrative seeded feasibility (35-99); computed after subs so costs/statuses are unchanged.
+    const feasibility = 35 + Math.round(rng() * 64);
     out.push({
       id,
       cat: cat.name,
@@ -645,6 +654,7 @@ function generate() {
       title: title2,
       impact,
       cost,
+      feasibility,
       subs
     });
   }
@@ -714,6 +724,12 @@ function filteredSorted() {
     const w = { High: 0, Medium: 1, Low: 2 };
     list.sort((a, b) => w[a.impact] - w[b.impact] || a.id - b.id);
   }
+  else if (sortMode === "feasibility") list.sort((a, b) => b.feasibility - a.feasibility || a.id - b.id);
+  else if (sortMode === "quickwins") {
+    const iw = { High: 3, Medium: 2, Low: 1 };
+    const q = s => iw[s.impact] * s.feasibility;
+    list.sort((a, b) => q(b) - q(a) || a.id - b.id);
+  }
   return list;
 }
 
@@ -728,6 +744,7 @@ function cardHTML(sol) {
     <div class="title">${escapeHTML(sol.title)}</div>
     <div class="meta">
       <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
+      <span class="pill feas-${feasBand(sol.feasibility)}" title="Feasibility ${sol.feasibility}/100 — illustrative">${sol.feasibility} feasibility</span>
       <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative">${formatMoney(solCost(sol))}</span>
       <div class="progress-mini"><span style="width:${p.pct}%"></span></div>
       <span class="idtag">${p.done}/${p.total}</span>
@@ -817,6 +834,8 @@ function currentRows() {
         category: sol.cat,
         solution: sol.title,
         impact: sol.impact,
+        feasibility: sol.feasibility,
+        feasibility_band: feasBand(sol.feasibility),
         cost_tier: sol.cost,
         solution_est_cost: solCost(sol),
         subtask_index: idx + 1,
@@ -839,6 +858,7 @@ function download(filename, text, type) {
 document.getElementById("exportJson").addEventListener("click", () => {
   const data = SOLUTIONS.map(sol => ({
     id: sol.id, category: sol.cat, title: sol.title, impact: sol.impact,
+    feasibility: sol.feasibility, feasibility_band: feasBand(sol.feasibility),
     cost_tier: sol.cost, est_total_cost: solCost(sol),
     subtasks: sol.subs.map((s, idx) => ({ task: s.text, est_cost: s.cost, status: STATUS_LABEL[subStatus(sol.id, idx, s.status)] }))
   }));
@@ -846,7 +866,7 @@ document.getElementById("exportJson").addEventListener("click", () => {
 });
 document.getElementById("exportCsv").addEventListener("click", () => {
   const rows = currentRows();
-  const cols = ["solution_id", "category", "solution", "impact", "cost_tier", "solution_est_cost", "subtask_index", "subtask", "subtask_est_cost", "status"];
+  const cols = ["solution_id", "category", "solution", "impact", "feasibility", "feasibility_band", "cost_tier", "solution_est_cost", "subtask_index", "subtask", "subtask_est_cost", "status"];
   const esc = v => `"${String(v).replace(/"/g, '""')}"`;
   const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => esc(r[c])).join(","))).join("\r\n");
   download("voltdown-solutions.csv", csv, "text/csv");
@@ -906,10 +926,12 @@ function renderDetail() {
     <h2 class="detail-title">${escapeHTML(sol.title)}</h2>
     <div class="meta">
       <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
+      <span class="pill feas-${feasBand(sol.feasibility)}" title="Feasibility ${sol.feasibility}/100">${feasBand(sol.feasibility)} feasibility</span>
       <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative">${COST_TIER_LABEL[sol.cost]}</span>
     </div>
     <div class="detail-cost">
       <div><div class="dc-n">${formatMoney(total)}</div><div class="dc-l">Est. total cost</div></div>
+      <div><div class="dc-n">${sol.feasibility}<span class="dc-sub">/100</span></div><div class="dc-l">Feasibility</div></div>
       <div><div class="dc-n">${p.done}/${p.total}</div><div class="dc-l">Subtasks done</div></div>
       <div><div class="dc-n">${p.pct}%</div><div class="dc-l">Complete</div></div>
     </div>

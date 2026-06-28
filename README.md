@@ -16,15 +16,16 @@ These numbers were verified by running the generator in Node:
 - **Search** across solution titles, categories, and subtask text.
 - **Category filter chips** — one click to focus a single category (each chip shows its count); an "All" chip resets the filter.
 - **Status filter** — show solutions that have a To-do, an In-progress, or a Blocked subtask, or that are fully complete.
-- **Sort** by progress (low → high or high → low) or by impact (High first), plus a default order.
+- **Sort** by progress (low → high or high → low), by impact (High first), by **feasibility (High first)**, or by **quick wins (impact × feasibility)** — surfacing solutions that are both high-impact and highly feasible — plus a default order.
 - **Live stats bar** — totals for solutions, subtasks, fully-complete solutions, percent of subtasks done, and blocked subtasks, with a **segmented progress bar** showing the done / in-progress / blocked / to-do mix.
 - **Master–detail panel** — click a card (or focus it and press **Enter**/**Space**) to slide open a right-side detail panel showing the solution's full subtask list, each subtask's estimated cost, the rolled-up estimated total, and live progress. Close it with the **✕** button, the **Esc** key, or by clicking the backdrop. Cards are keyboard-accessible (`role="button"`, focusable, with an ARIA label) and the active card stays highlighted while the panel is open.
 - **Per-subtask cost + per-solution total** — every subtask carries an illustrative estimated cost (USD), and each solution rolls them up into an **estimated total cost** shown as a pill on the card and broken out in the detail panel.
+- **Feasibility score** — every solution carries an illustrative **feasibility score (0–100)**, displayed as a **High / Medium / Low** band, shown next to the impact and cost pills on both the cards and the right-side detail panel.
 - **Clickable status cycling** — click any subtask status (on a card or in the panel) to advance it through **To-do → In progress → Done → Blocked** and back to To-do.
 - **Per-card mini progress** — each card shows a small progress bar and a `done/total` count that updates instantly as you change statuses.
 - **localStorage persistence** — your status changes are saved to your device and restored on reload.
 - **Reset progress** — clear all saved status changes (with a confirmation prompt).
-- **Export JSON** and **Export CSV** — download the full catalog (with your current statuses **and the cost columns** — per-subtask estimated cost and the per-solution rolled-up estimated total) as `voltdown-solutions.json` or `voltdown-solutions.csv`.
+- **Export JSON** and **Export CSV** — download the full catalog (with your current statuses, **the cost columns** — per-subtask estimated cost and the per-solution rolled-up estimated total — and the **feasibility score and band**) as `voltdown-solutions.json` or `voltdown-solutions.csv`.
 - **Infinite scroll** — cards load in batches of ~60 as you scroll, so all 1,000 solutions stay responsive.
 - **Responsive dark theme** — a polished dark UI that reflows to a single column on small screens.
 
@@ -40,7 +41,7 @@ The catalog is produced **deterministically** so the output is stable across rel
 
 ## Honesty / disclaimer
 
-The **impact ratings**, **cost ratings**, **per-subtask cost estimates** (and the per-solution rolled-up totals derived from them), and **default statuses** are **illustrative seeded values**, generated to make the tracker usable and visually meaningful out of the box. The dollar figures in particular are seeded from each solution's cost tier — they are **not** sourced estimates, expert assessments, quotes, or real project data, and they should not be read as evidence about which solutions are actually most effective, cheapest, or already underway, nor as real budgets. Treat the catalog as a structured starting point for thinking and planning — the ratings, costs, and statuses are there so the dashboard, panel, and filters have something to work with, not as factual claims.
+The **impact ratings**, **cost ratings**, **per-subtask cost estimates** (and the per-solution rolled-up totals derived from them), **feasibility scores** (and their High / Medium / Low bands), and **default statuses** are **illustrative seeded values**, generated to make the tracker usable and visually meaningful out of the box. The dollar figures in particular are seeded from each solution's cost tier, and the feasibility scores are seeded per solution — they are **not** sourced estimates, expert assessments, quotes, or real project data, and they should not be read as evidence about which solutions are actually most effective, cheapest, most feasible, or already underway, nor as real budgets. Treat the catalog as a structured starting point for thinking and planning — the ratings, costs, and statuses are there so the dashboard, panel, and filters have something to work with, not as factual claims.
 
 ## Run locally
 
