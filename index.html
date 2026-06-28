@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VoltDown — 1000 Solutions to High Electricity Prices</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --bg-soft: #121a32;
+    --card: #161f3d;
+    --card-2: #1c2748;
+    --line: #283359;
+    --txt: #e8edff;
+    --muted: #9aa6cf;
+    --accent: #ffd54a;
+    --accent-2: #4ad0ff;
+    --green: #3ddc97;
+    --amber: #ffb020;
+    --red: #ff5c7a;
+    --grey: #76819e;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1a2552 0%, transparent 60%),
+                radial-gradient(900px 500px at -10% 10%, #102a3a 0%, transparent 55%),
+                var(--bg);
+    color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 28px 24px 10px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .logo {
+    width: 46px; height: 46px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #ff8a3c);
+    display: grid; place-items: center; font-size: 26px;
+    box-shadow: 0 6px 18px rgba(255,170,60,.35);
+  }
+  h1 { font-size: 26px; margin: 0; letter-spacing: .3px; }
+  .tag { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .stats {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 12px; margin: 20px auto 0; max-width: 1280px; padding: 0 24px;
+  }
+  .stat {
+    background: linear-gradient(180deg, var(--card), var(--bg-soft));
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 700; }
+  .stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+  .bar { height: 8px; border-radius: 8px; background: #0d1430; overflow: hidden; margin-top: 10px; display: flex; }
+  .bar > span { display: block; height: 100%; }
+  .controls {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: blur(10px);
+    background: rgba(11,16,32,.78);
+    border-bottom: 1px solid var(--line);
+    margin-top: 18px; padding: 14px 24px;
+  }
+  .controls-inner {
+    max-width: 1280px; margin: 0 auto;
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  }
+  input[type="search"], select {
+    background: var(--bg-soft); border: 1px solid var(--line); color: var(--txt);
+    padding: 10px 12px; border-radius: 10px; font-size: 14px; outline: none;
+  }
+  input[type="search"] { flex: 1 1 280px; min-width: 200px; }
+  input[type="search"]:focus, select:focus { border-color: var(--accent-2); }
+  .chiprow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--line); background: var(--bg-soft); color: var(--muted);
+    padding: 7px 12px; border-radius: 999px; font-size: 13px; cursor: pointer; user-select: none;
+  }
+  .chip.active { color: #0b1020; background: var(--accent-2); border-color: var(--accent-2); font-weight: 600; }
+  .count { color: var(--muted); font-size: 13px; margin-left: auto; }
+  main { max-width: 1280px; margin: 18px auto 80px; padding: 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px;
+  }
+  .card .top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .cat {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .7px;
+    color: var(--accent-2); font-weight: 700;
+  }
+  .idtag { color: var(--grey); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .title { font-size: 16px; font-weight: 650; line-height: 1.3; }
+  .desc { color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .pill {
+    font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600;
+    border: 1px solid var(--line);
+  }
+  .pill.impact-High { color: #0b1020; background: var(--green); border-color: var(--green); }
+  .pill.impact-Medium { color: #0b1020; background: var(--amber); border-color: var(--amber); }
+  .pill.impact-Low { color: var(--muted); }
+  .pill.cost { color: var(--accent); border-color: #4a3f10; background: #221c06; }
+  .progress-mini { flex: 1 1 90px; height: 6px; border-radius: 6px; background: #0d1430; overflow: hidden; min-width: 60px; }
+  .progress-mini > span { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--accent-2)); }
+  .subs { display: none; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .card.open .subs { display: flex; }
+  .sub {
+    display: flex; align-items: center; gap: 10px;
+    background: #0e1530; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 10px; font-size: 13px;
+  }
+  .sub .stxt { flex: 1; }
+  .sub.done .stxt { text-decoration: line-through; color: var(--grey); }
+  .status-btn {
+    border: none; cursor: pointer; font-size: 11px; font-weight: 700;
+    padding: 4px 8px; border-radius: 7px; min-width: 92px; text-align: center;
+    color: #0b1020;
+  }
+  .s-todo { background: var(--grey); color: #0b1020; }
+  .s-doing { background: var(--amber); }
+  .s-blocked { background: var(--red); }
+  .s-done { background: var(--green); }
+  .toggle {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 9px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+    align-self: flex-start;
+  }
+  .toggle:hover { color: var(--txt); border-color: var(--accent-2); }
+  .sentinel { height: 1px; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 0; }
+  footer { text-align: center; color: var(--grey); font-size: 12px; padding: 30px 0 50px; }
+  .reset {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 9px; padding: 9px 12px; font-size: 13px; cursor: pointer;
+  }
+  .reset:hover { border-color: var(--red); color: var(--red); }
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1>VoltDown</h1>
+      <div class="tag">1,000 actionable solutions to bring down the high price of electricity — each split into subtasks with live status tracking.</div>
+    </div>
+  </div>
+</header>
+
+<section class="stats" id="stats"></section>
+
+<div class="controls">
+  <div class="controls-inner">
+    <input type="search" id="search" placeholder="Search 1,000 solutions, subtasks, categories…" />
+    <select id="statusFilter">
+      <option value="">All statuses</option>
+      <option value="todo">Has To-do</option>
+      <option value="doing">Has In-progress</option>
+      <option value="blocked">Has Blocked</option>
+      <option value="done">Fully complete</option>
+    </select>
+    <select id="sort">
+      <option value="id">Sort: Default</option>
+      <option value="progress-asc">Progress: Low → High</option>
+      <option value="progress-desc">Progress: High → Low</option>
+      <option value="impact">Impact: High first</option>
+    </select>
+    <button class="reset" id="exportJson">Export JSON</button>
+    <button class="reset" id="exportCsv">Export CSV</button>
+    <button class="reset" id="reset">Reset progress</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="controls-inner" style="margin-top:10px;">
+    <div class="chiprow" id="cats"></div>
+  </div>
+</div>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none;">No solutions match your filters.</div>
+  <div class="sentinel" id="sentinel"></div>
+</main>
+
+<footer>VoltDown · Generated locally in your browser · Status changes saved to this device only.</footer>
+
+<script>
+/* ---------- Deterministic PRNG so generated data is stable across reloads ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+
+/* ---------- Solution domain model ---------- */
+const CATEGORIES = [
+  {
+    key: "Efficiency", name: "Home Energy Efficiency", color: "#4ad0ff",
+    stems: [
+      "Subsidize whole-home insulation upgrades",
+      "Roll out free smart thermostats",
+      "Mandate LED lighting retrofits",
+      "Launch an appliance trade-in rebate",
+      "Fund attic and wall air-sealing",
+      "Require energy-efficient windows in renovations",
+      "Offer free home energy audits",
+      "Replace electric resistance water heaters with heat-pump units",
+      "Incentivize Energy Star appliance purchases",
+      "Deploy occupancy-based lighting controls",
+      "Standardize energy labels on rentals",
+      "Cut phantom standby loads with smart plugs"
+    ]
+  },
+  {
+    key: "Solar", name: "Rooftop & Distributed Solar", color: "#ffd54a",
+    stems: [
+      "Streamline rooftop solar permitting",
+      "Create a solar group-buy program",
+      "Offer zero-down solar leasing",
+      "Build shared community solar gardens",
+      "Subsidize solar for low-income households",
+      "Mandate solar-ready new construction",
+      "Fund solar canopies over parking lots",
+      "Enable virtual net metering",
+      "Deploy balcony plug-in solar kits",
+      "Cut interconnection wait times for small solar",
+      "Pair solar with agrivoltaics on farmland",
+      "Install solar on school and municipal roofs"
+    ]
+  },
+  {
+    key: "Storage", name: "Batteries & Storage", color: "#3ddc97",
+    stems: [
+      "Subsidize home battery storage",
+      "Build neighborhood-scale battery hubs",
+      "Repurpose retired EV batteries for grid storage",
+      "Deploy long-duration iron-air storage",
+      "Add storage to community solar projects",
+      "Incentivize behind-the-meter batteries for peak shaving",
+      "Pilot thermal energy storage for heating",
+      "Fund pumped-hydro storage expansion",
+      "Aggregate home batteries into a virtual power plant",
+      "Co-locate storage with substations",
+      "Deploy flow batteries for multi-hour shifting",
+      "Use gravity storage in former mine shafts"
+    ]
+  },
+  {
+    key: "Demand", name: "Demand Response & Pricing", color: "#ff8a3c",
+    stems: [
+      "Roll out time-of-use pricing",
+      "Pay customers to cut load at peak",
+      "Automate demand response for AC units",
+      "Offer critical-peak rebates",
+      "Enable real-time price signals to smart homes",
+      "Create an opt-in 'beat the peak' alert program",
+      "Shift EV charging to off-peak hours",
+      "Reward water heaters that pre-heat off-peak",
+      "Coordinate pool-pump scheduling",
+      "Launch behavioral peak-day challenges",
+      "Bundle smart-home load control with discounts",
+      "Flatten demand with industrial load curtailment contracts"
+    ]
+  },
+  {
+    key: "Grid", name: "Grid Modernization", color: "#9b8cff",
+    stems: [
+      "Deploy smart meters universally",
+      "Upgrade aging distribution transformers",
+      "Add grid sensors for real-time monitoring",
+      "Automate fault detection and self-healing",
+      "Reduce technical line losses",
+      "Implement advanced distribution management systems",
+      "Reconductor lines with high-capacity wire",
+      "Modernize SCADA and grid software",
+      "Add dynamic line rating to existing lines",
+      "Harden the grid against extreme weather",
+      "Integrate distributed energy resource management",
+      "Cut non-technical losses and electricity theft"
+    ]
+  },
+  {
+    key: "Renewables", name: "Utility-Scale Renewables", color: "#46e0c0",
+    stems: [
+      "Accelerate utility-scale solar farms",
+      "Expand onshore wind capacity",
+      "Develop offshore wind projects",
+      "Repower old wind farms with modern turbines",
+      "Build hybrid solar-plus-storage plants",
+      "Tap geothermal baseload resources",
+      "Streamline renewable land-use permitting",
+      "Sign long-term renewable power purchase agreements",
+      "Co-locate renewables with existing substations",
+      "Develop floating solar on reservoirs",
+      "Auction renewable capacity competitively",
+      "Build concentrated solar power with storage"
+    ]
+  },
+  {
+    key: "Nuclear", name: "Nuclear & Firm Power", color: "#ff5c7a",
+    stems: [
+      "Extend licenses for existing nuclear plants",
+      "Deploy small modular reactors",
+      "Uprate output at current reactors",
+      "Standardize reactor designs to cut cost",
+      "Fund advanced reactor demonstrations",
+      "Reduce nuclear construction risk with public financing",
+      "Recycle spent fuel to lower waste costs",
+      "Site microreactors for remote communities",
+      "Streamline nuclear regulatory approval",
+      "Pair nuclear with hydrogen co-production",
+      "Train a nuclear construction workforce",
+      "Convert retiring coal sites to nuclear"
+    ]
+  },
+  {
+    key: "Transmission", name: "Transmission & Interconnection", color: "#5ab0ff",
+    stems: [
+      "Build new interregional transmission lines",
+      "Clear the interconnection queue backlog",
+      "Use grid-enhancing technologies on existing lines",
+      "Coordinate regional capacity markets",
+      "Deploy high-voltage DC corridors",
+      "Reduce congestion on bottleneck lines",
+      "Plan transmission proactively for renewables",
+      "Share reserves across balancing authorities",
+      "Fast-track permitting for priority lines",
+      "Reconductor corridors to double capacity",
+      "Build offshore wind transmission backbone",
+      "Link isolated grids with new interconnectors"
+    ]
+  },
+  {
+    key: "Market", name: "Market & Regulatory Reform", color: "#ffc14a",
+    stems: [
+      "Introduce retail electricity competition",
+      "Reform capacity market design",
+      "Decouple utility profit from volume sold",
+      "Cap excessive utility return on equity",
+      "Improve wholesale market price formation",
+      "Phase out inefficient fuel subsidies",
+      "Audit and trim utility rate base padding",
+      "Enable demand-side bidding in markets",
+      "Tighten oversight of fuel cost pass-throughs",
+      "Reform performance-based ratemaking",
+      "Increase transparency of utility costs",
+      "Remove barriers to community choice aggregation"
+    ]
+  },
+  {
+    key: "Heating", name: "Heat Pumps & Electrification", color: "#4ad0ff",
+    stems: [
+      "Subsidize air-source heat pump installs",
+      "Fund ground-source heat pump loops",
+      "Replace gas furnaces with heat pumps",
+      "Deploy heat-pump water heaters at scale",
+      "Build networked geothermal districts",
+      "Offer heat-pump financing for renters' landlords",
+      "Train HVAC installers for heat pumps",
+      "Bundle heat pumps with weatherization",
+      "Pilot cold-climate heat pumps",
+      "Electrify commercial space heating",
+      "Recover waste heat from industry",
+      "Use district heating from data centers"
+    ]
+  },
+  {
+    key: "Industry", name: "Industrial & Commercial", color: "#9b8cff",
+    stems: [
+      "Upgrade industrial motors to high efficiency",
+      "Install variable-frequency drives",
+      "Recover and reuse industrial waste heat",
+      "Optimize compressed-air systems",
+      "Audit large commercial HVAC systems",
+      "Shift energy-intensive processes off-peak",
+      "Deploy combined heat and power on-site",
+      "Retrofit commercial building lighting",
+      "Benchmark and disclose building energy use",
+      "Automate building energy management systems",
+      "Electrify industrial process heat efficiently",
+      "Right-size oversized industrial equipment"
+    ]
+  },
+  {
+    key: "Community", name: "Community & Cooperative Models", color: "#3ddc97",
+    stems: [
+      "Form a community choice energy program",
+      "Establish a member-owned energy cooperative",
+      "Bulk-purchase power for a municipality",
+      "Create a local energy sharing microgrid",
+      "Run a neighborhood weatherization brigade",
+      "Pool demand for group renewable buys",
+      "Set up a low-income energy assistance fund",
+      "Launch a tool library for efficiency gear",
+      "Build a resilient community microgrid",
+      "Organize peer-to-peer energy trading",
+      "Train community energy navigators",
+      "Crowdfund a shared solar+storage asset"
+    ]
+  },
+  {
+    key: "Transport", name: "EV & Transport Load", color: "#ff8a3c",
+    stems: [
+      "Deploy managed smart EV charging",
+      "Enable vehicle-to-grid discharge",
+      "Build off-peak workplace charging",
+      "Offer EV time-of-use charging rates",
+      "Coordinate fleet charging schedules",
+      "Add solar canopies to charging stations",
+      "Pilot bidirectional school-bus charging",
+      "Stagger depot charging to cut demand charges",
+      "Bundle home chargers with managed-charging discounts",
+      "Use EV batteries as backup during peaks",
+      "Optimize public charger placement to cut grid stress",
+      "Integrate charging with rooftop solar"
+    ]
+  },
+  {
+    key: "Finance", name: "Financing & Affordability", color: "#ffd54a",
+    stems: [
+      "Offer on-bill financing for upgrades",
+      "Create low-interest green energy loans",
+      "Expand bill assistance for vulnerable households",
+      "Introduce percentage-of-income energy caps",
+      "Fund a revolving efficiency loan pool",
+      "Provide grants for low-income electrification",
+      "Use property-assessed clean energy financing",
+      "Cap reconnection and late fees",
+      "Smooth seasonal bills with budget billing",
+      "Provide weatherization for renters at no cost",
+      "Tie subsidies to verified energy savings",
+      "Offer inclusive financing regardless of credit"
+    ]
+  },
+  {
+    key: "Policy", name: "Policy & Standards", color: "#ffc14a",
+    stems: [
+      "Tighten building energy codes",
+      "Set ambitious appliance efficiency standards",
+      "Mandate utility energy-savings targets",
+      "Require benchmarking for large buildings",
+      "Set a clean energy procurement standard",
+      "Reform net metering fairly",
+      "Mandate transparent, comparable utility bills",
+      "Phase out the least efficient appliances",
+      "Require demand-flexibility-ready devices",
+      "Adopt time-varying default rates",
+      "Set interconnection timelines into law",
+      "Create an independent consumer energy watchdog"
+    ]
+  },
+  {
+    key: "Behavior", name: "Behavioral & Consumer Tools", color: "#5ab0ff",
+    stems: [
+      "Send personalized usage comparison reports",
+      "Provide a real-time home energy dashboard",
+      "Gamify energy savings with rewards",
+      "Send high-bill early warning alerts",
+      "Offer appliance-level usage disaggregation",
+      "Nudge off-peak usage with notifications",
+      "Run school energy-literacy programs",
+      "Publish a plain-language rate comparison tool",
+      "Coach households with an energy-savings app",
+      "Give neighbor-benchmark social nudges",
+      "Provide a one-click plan-switching tool",
+      "Alert customers to cheaper utility plans"
+    ]
+  },
+  {
+    key: "Loss", name: "Losses, Theft & Resilience", color: "#46e0c0",
+    stems: [
+      "Detect and stop electricity theft",
+      "Reduce distribution losses with reactive power control",
+      "Replace undersized service conductors",
+      "Fix high-loss legacy substations",
+      "Add capacitor banks for voltage support",
+      "Deploy conservation voltage reduction",
+      "Improve power factor at large loads",
+      "Cut losses with localized generation",
+      "Modernize metering to catch tampering",
+      "Balance loads across distribution phases",
+      "Insulate and upgrade aging feeders",
+      "Use microgrids to avoid long-haul losses"
+    ]
+  }
+];
+
+const SCOPES = [
+  "", "for low-income households", "in rural areas", "in dense urban centers",
+  "via a municipal program", "through public-private partnership", "at the state level",
+  "using AI-driven optimization", "for renters", "for small businesses",
+  "as a regional pilot", "with federal cost-sharing", "for multi-family housing",
+  "targeting high-bill customers", "across the utility service territory",
+  "with open-data transparency", "tied to verified savings", "for schools and hospitals",
+  "in disadvantaged communities", "with a 5-year scale-up plan"
+];
+
+const IMPACTS = ["High", "High", "Medium", "Medium", "Medium", "Low"];
+const COSTS = ["$", "$$", "$$$"];
+
+const SUBTASK_BANK = {
+  generic: [
+    "Scope the problem and set a target",
+    "Run a feasibility and cost-benefit study",
+    "Identify and engage stakeholders",
+    "Secure funding and approvals",
+    "Design the program rules and eligibility",
+    "Launch a small pilot",
+    "Measure results against the baseline",
+    "Iterate based on pilot data",
+    "Scale to full deployment",
+    "Set up ongoing monitoring and reporting",
+    "Build public awareness and outreach",
+    "Train staff and installers",
+    "Establish KPIs and a dashboard",
+    "Procure equipment and vendors",
+    "Define a clear customer enrollment path"
+  ]
+};
+
+const STATUSES = ["todo", "doing", "blocked", "done"];
+const STATUS_LABEL = { todo: "To-do", doing: "In progress", blocked: "Blocked", done: "Done" };
+const STATUS_NEXT = { todo: "doing", doing: "done", done: "blocked", blocked: "todo" };
+
+/* ---------- Generate exactly 1000 solutions ---------- */
+const TOTAL = 1000;
+function generate() {
+  const out = [];
+  const seenTitles = new Set();
+  let i = 0;
+  // round-robin across categories so the list feels balanced
+  let guard = 0;
+  while (out.length < TOTAL && guard < 100000) {
+    guard++;
+    const cat = CATEGORIES[i % CATEGORIES.length];
+    i++;
+    const id = out.length + 1;
+    const rng = mulberry32(id * 2654435761 + 12345);
+    const stem = pick(rng, cat.stems);
+    const scope = pick(rng, SCOPES);
+    let title = scope ? `${stem} ${scope}` : stem;
+    // ensure uniqueness; if collision, append a differentiator
+    let title2 = title;
+    let bump = 2;
+    while (seenTitles.has(title2)) { title2 = `${title} (phase ${bump++})`; }
+    seenTitles.add(title2);
+
+    const impact = pick(rng, IMPACTS);
+    const cost = pick(rng, COSTS);
+    const nSubs = 3 + Math.floor(rng() * 3); // 3..5
+    const bank = SUBTASK_BANK.generic.slice();
+    const subs = [];
+    for (let s = 0; s < nSubs; s++) {
+      const idx = Math.floor(rng() * bank.length);
+      const text = bank.splice(idx, 1)[0] || `Implementation step ${s + 1}`;
+      // deterministic seeded default status, weighted toward not-done
+      const r = rng();
+      let st = "todo";
+      if (r > 0.92) st = "done";
+      else if (r > 0.78) st = "blocked";
+      else if (r > 0.5) st = "doing";
+      subs.push({ text, status: st });
+    }
+    out.push({
+      id,
+      cat: cat.name,
+      catKey: cat.key,
+      color: cat.color,
+      title: title2,
+      impact,
+      cost,
+      subs
+    });
+  }
+  return out;
+}
+
+const SOLUTIONS = generate();
+
+/* ---------- Persistence ---------- */
+const STORE_KEY = "voltdown_status_v1";
+function loadOverrides() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveOverrides(o) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch {}
+}
+let OVERRIDES = loadOverrides();
+
+function subStatus(solId, subIdx, baseStatus) {
+  const k = solId + ":" + subIdx;
+  return (OVERRIDES[k] != null) ? OVERRIDES[k] : baseStatus;
+}
+function setSubStatus(solId, subIdx, status) {
+  OVERRIDES[solId + ":" + subIdx] = status;
+  saveOverrides(OVERRIDES);
+}
+
+/* ---------- Derived helpers ---------- */
+function solStatuses(sol) {
+  return sol.subs.map((s, idx) => subStatus(sol.id, idx, s.status));
+}
+function solProgress(sol) {
+  const st = solStatuses(sol);
+  const done = st.filter(x => x === "done").length;
+  return { done, total: st.length, pct: Math.round((done / st.length) * 100), st };
+}
+
+/* ---------- UI state ---------- */
+let activeCat = "";       // category key filter
+let searchQ = "";
+let statusFilter = "";
+let sortMode = "id";
+let renderLimit = 60;     // infinite-scroll batch
+
+const grid = document.getElementById("grid");
+const emptyEl = document.getElementById("empty");
+const countEl = document.getElementById("count");
+
+function matches(sol) {
+  if (activeCat && sol.catKey !== activeCat) return false;
+  const { st } = solProgress(sol);
+  if (statusFilter === "done" && !st.every(x => x === "done")) return false;
+  if (statusFilter && statusFilter !== "done" && !st.includes(statusFilter)) return false;
+  if (searchQ) {
+    const hay = (sol.title + " " + sol.cat + " " + sol.subs.map(s => s.text).join(" ")).toLowerCase();
+    if (!hay.includes(searchQ)) return false;
+  }
+  return true;
+}
+
+function filteredSorted() {
+  let list = SOLUTIONS.filter(matches);
+  if (sortMode === "progress-asc") list.sort((a, b) => solProgress(a).pct - solProgress(b).pct || a.id - b.id);
+  else if (sortMode === "progress-desc") list.sort((a, b) => solProgress(b).pct - solProgress(a).pct || a.id - b.id);
+  else if (sortMode === "impact") {
+    const w = { High: 0, Medium: 1, Low: 2 };
+    list.sort((a, b) => w[a.impact] - w[b.impact] || a.id - b.id);
+  }
+  return list;
+}
+
+function cardHTML(sol) {
+  const p = solProgress(sol);
+  const subsHTML = sol.subs.map((s, idx) => {
+    const st = p.st[idx];
+    return `<div class="sub ${st === "done" ? "done" : ""}">
+      <span class="stxt">${escapeHTML(s.text)}</span>
+      <button class="status-btn s-${st}" data-sol="${sol.id}" data-sub="${idx}">${STATUS_LABEL[st]}</button>
+    </div>`;
+  }).join("");
+  return `<div class="card" data-id="${sol.id}">
+    <div class="top">
+      <span class="cat" style="color:${sol.color}">${escapeHTML(sol.cat)}</span>
+      <span class="idtag">#${String(sol.id).padStart(4, "0")}</span>
+    </div>
+    <div class="title">${escapeHTML(sol.title)}</div>
+    <div class="meta">
+      <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
+      <span class="pill cost">${sol.cost}</span>
+      <div class="progress-mini"><span style="width:${p.pct}%"></span></div>
+      <span class="idtag">${p.done}/${p.total}</span>
+    </div>
+    <div class="subs">${subsHTML}</div>
+    <button class="toggle">▸ Show ${sol.subs.length} subtasks</button>
+  </div>`;
+}
+
+function escapeHTML(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function render() {
+  const list = filteredSorted();
+  countEl.textContent = `${list.length.toLocaleString()} of ${TOTAL.toLocaleString()} shown`;
+  const slice = list.slice(0, renderLimit);
+  grid.innerHTML = slice.map(cardHTML).join("");
+  emptyEl.style.display = list.length === 0 ? "block" : "none";
+  window._fullCount = list.length;
+}
+
+/* ---------- Stats ---------- */
+function renderStats() {
+  let subTotal = 0, done = 0, doing = 0, blocked = 0, todo = 0, fullyDone = 0;
+  for (const sol of SOLUTIONS) {
+    const st = solStatuses(sol);
+    subTotal += st.length;
+    let allDone = true;
+    for (const s of st) {
+      if (s === "done") done++; else allDone = false;
+      if (s === "doing") doing++;
+      if (s === "blocked") blocked++;
+      if (s === "todo") todo++;
+    }
+    if (allDone) fullyDone++;
+  }
+  const pct = Math.round((done / subTotal) * 100);
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="n">${TOTAL.toLocaleString()}</div><div class="l">Solutions</div></div>
+    <div class="stat"><div class="n">${subTotal.toLocaleString()}</div><div class="l">Subtasks</div></div>
+    <div class="stat"><div class="n">${fullyDone.toLocaleString()}</div><div class="l">Fully complete</div></div>
+    <div class="stat"><div class="n">${pct}%</div><div class="l">Subtasks done</div>
+      <div class="bar">
+        <span style="width:${done/subTotal*100}%;background:var(--green)"></span>
+        <span style="width:${doing/subTotal*100}%;background:var(--amber)"></span>
+        <span style="width:${blocked/subTotal*100}%;background:var(--red)"></span>
+        <span style="width:${todo/subTotal*100}%;background:var(--grey)"></span>
+      </div>
+    </div>
+    <div class="stat"><div class="n">${blocked.toLocaleString()}</div><div class="l">Blocked subtasks</div></div>`;
+}
+
+/* ---------- Category chips ---------- */
+function renderChips() {
+  const counts = {};
+  for (const s of SOLUTIONS) counts[s.catKey] = (counts[s.catKey] || 0) + 1;
+  const el = document.getElementById("cats");
+  let html = `<span class="chip ${activeCat === "" ? "active" : ""}" data-cat="">All (${TOTAL})</span>`;
+  html += CATEGORIES.map(c =>
+    `<span class="chip ${activeCat === c.key ? "active" : ""}" data-cat="${c.key}">${c.name} (${counts[c.key] || 0})</span>`
+  ).join("");
+  el.innerHTML = html;
+}
+
+/* ---------- Events ---------- */
+document.getElementById("cats").addEventListener("click", e => {
+  const chip = e.target.closest(".chip"); if (!chip) return;
+  activeCat = chip.dataset.cat; renderLimit = 60;
+  renderChips(); render();
+});
+document.getElementById("search").addEventListener("input", e => {
+  searchQ = e.target.value.trim().toLowerCase(); renderLimit = 60; render();
+});
+document.getElementById("statusFilter").addEventListener("change", e => {
+  statusFilter = e.target.value; renderLimit = 60; render();
+});
+document.getElementById("sort").addEventListener("change", e => {
+  sortMode = e.target.value; renderLimit = 60; render();
+});
+function currentRows() {
+  // one row per subtask, reflecting any saved status overrides
+  const rows = [];
+  for (const sol of SOLUTIONS) {
+    sol.subs.forEach((s, idx) => {
+      rows.push({
+        solution_id: sol.id,
+        category: sol.cat,
+        solution: sol.title,
+        impact: sol.impact,
+        cost: sol.cost,
+        subtask_index: idx + 1,
+        subtask: s.text,
+        status: STATUS_LABEL[subStatus(sol.id, idx, s.status)]
+      });
+    });
+  }
+  return rows;
+}
+function download(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+document.getElementById("exportJson").addEventListener("click", () => {
+  const data = SOLUTIONS.map(sol => ({
+    id: sol.id, category: sol.cat, title: sol.title, impact: sol.impact, cost: sol.cost,
+    subtasks: sol.subs.map((s, idx) => ({ task: s.text, status: STATUS_LABEL[subStatus(sol.id, idx, s.status)] }))
+  }));
+  download("voltdown-solutions.json", JSON.stringify(data, null, 2), "application/json");
+});
+document.getElementById("exportCsv").addEventListener("click", () => {
+  const rows = currentRows();
+  const cols = ["solution_id", "category", "solution", "impact", "cost", "subtask_index", "subtask", "status"];
+  const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => esc(r[c])).join(","))).join("\r\n");
+  download("voltdown-solutions.csv", csv, "text/csv");
+});
+document.getElementById("reset").addEventListener("click", () => {
+  if (confirm("Reset all status changes saved on this device?")) {
+    OVERRIDES = {}; saveOverrides(OVERRIDES); render(); renderStats();
+  }
+});
+
+grid.addEventListener("click", e => {
+  const toggle = e.target.closest(".toggle");
+  if (toggle) {
+    const card = toggle.closest(".card");
+    card.classList.toggle("open");
+    const sol = SOLUTIONS[+card.dataset.id - 1];
+    toggle.textContent = card.classList.contains("open")
+      ? "▾ Hide subtasks" : `▸ Show ${sol.subs.length} subtasks`;
+    return;
+  }
+  const btn = e.target.closest(".status-btn");
+  if (btn) {
+    const solId = +btn.dataset.sol, subIdx = +btn.dataset.sub;
+    const sol = SOLUTIONS[solId - 1];
+    const cur = subStatus(solId, subIdx, sol.subs[subIdx].status);
+    const next = STATUS_NEXT[cur];
+    setSubStatus(solId, subIdx, next);
+    // update this button
+    btn.className = "status-btn s-" + next;
+    btn.textContent = STATUS_LABEL[next];
+    btn.closest(".sub").classList.toggle("done", next === "done");
+    // update mini progress on the card
+    const p = solProgress(sol);
+    const card = btn.closest(".card");
+    card.querySelector(".progress-mini > span").style.width = p.pct + "%";
+    card.querySelector(".meta .idtag").textContent = `${p.done}/${p.total}`;
+    renderStats();
+  }
+});
+
+/* ---------- Infinite scroll ---------- */
+const sentinel = document.getElementById("sentinel");
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && renderLimit < (window._fullCount || 0)) {
+    renderLimit += 60; render();
+  }
+}, { rootMargin: "600px" }).observe(sentinel);
+
+/* ---------- Init ---------- */
+renderChips();
+renderStats();
+render();
+</script>
+</body>
+</html>
