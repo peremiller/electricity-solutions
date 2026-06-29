@@ -92,6 +92,7 @@
     font-family: inherit; line-height: 1.2;
   }
   .chip.active { color: #0b1020; background: var(--accent-2); border-color: var(--accent-2); font-weight: 600; }
+  .chip-toggle { color: var(--accent-2); border-style: dashed; font-weight: 600; }
   .count { color: var(--muted); font-size: 13px; margin-left: auto; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -198,13 +199,25 @@
   }
   .dsubs { display: flex; flex-direction: column; gap: 8px; }
   .dsub {
-    display: flex; align-items: center; gap: 12px; justify-content: space-between;
+    display: flex; flex-direction: column; gap: 8px;
     background: #0e1530; border: 1px solid var(--line); border-radius: 11px; padding: 11px 12px;
   }
+  .dsub-row { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
   .dsub-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
   .dsub-txt { font-size: 14px; }
   .dsub.done .dsub-txt { text-decoration: line-through; color: var(--grey); }
   .dsub-cost { color: var(--accent); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .steps-toggle {
+    align-self: flex-start; background: none; border: none; color: var(--accent-2);
+    cursor: pointer; font: inherit; font-size: 12px; padding: 0;
+  }
+  .steps-toggle:hover { text-decoration: underline; }
+  .dsteps {
+    margin: 0; padding: 6px 0 2px 22px; display: flex; flex-direction: column; gap: 5px;
+    color: var(--muted); font-size: 13px; line-height: 1.4;
+  }
+  .dsteps li { padding-left: 2px; }
+  .dsteps li::marker { color: var(--accent-2); }
   .detail-note { color: var(--grey); font-size: 12px; line-height: 1.5; margin-top: 18px; }
   @media (max-width: 760px) {
     .detail { width: 100vw; max-width: none; }
@@ -667,6 +680,36 @@ const SUBTASK_BANK = {
   ]
 };
 
+// Comprehensive, ordered execution steps for any subtask. {t} = the subtask text.
+const STEP_BANK = [
+  "Clarify the objective and a clear definition of done",
+  "Confirm how this supports the parent task: {t}",
+  "Identify the owner, stakeholders, and approvers",
+  "Break the work into concrete, sequenced tasks",
+  "Estimate the effort, cost, and timeline",
+  "Surface dependencies, risks, and likely blockers",
+  "Gather the data, tools, permits, or vendors required",
+  "Draft the detailed plan and circulate it for review",
+  "Run a small pilot or dry run to de-risk the approach",
+  "Execute the work and track progress against milestones",
+  "Validate the results against the success metrics",
+  "Communicate status and decisions to stakeholders",
+  "Document the outcome and capture lessons learned",
+  "Secure sign-off and formally close out this step"
+];
+// Deterministic per-subtask steps from an independent seed — does NOT touch the
+// main generator's PRNG, so existing costs/statuses/feasibility stay unchanged.
+function stepsFor(solId, subIdx, text) {
+  const rng = mulberry32(((solId * 131) + (subIdx * 17) + 7) >>> 0);
+  const n = 5 + Math.floor(rng() * 3); // 5..7 steps
+  const pool = STEP_BANK.map((_, i) => i);
+  const picked = [];
+  while (picked.length < n && pool.length) picked.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+  picked.sort((a, b) => a - b); // preserve the bank's logical order
+  const t = text.charAt(0).toLowerCase() + text.slice(1);
+  return picked.map(i => STEP_BANK[i].replace("{t}", t));
+}
+
 const STATUSES = ["todo", "doing", "blocked", "done"];
 const STATUS_LABEL = { todo: "To-do", doing: "In progress", blocked: "Blocked", done: "Done" };
 const STATUS_NEXT = { todo: "doing", doing: "done", done: "blocked", blocked: "todo" };
@@ -907,19 +950,37 @@ function renderStats() {
 }
 
 /* ---------- Category chips ---------- */
+const CHIP_COLLAPSED = 6;   // how many category chips to show before "See more"
+let chipsExpanded = false;
+function chipHTML(key, label, count) {
+  return `<button type="button" class="chip ${activeCat === key ? "active" : ""}" data-cat="${key}" aria-pressed="${activeCat === key}">${label} (${count})</button>`;
+}
 function renderChips() {
   const counts = {};
   for (const s of SOLUTIONS) counts[s.catKey] = (counts[s.catKey] || 0) + 1;
   const el = document.getElementById("cats");
-  let html = `<button type="button" class="chip ${activeCat === "" ? "active" : ""}" data-cat="" aria-pressed="${activeCat === ""}">All (${TOTAL})</button>`;
-  html += CATEGORIES.map(c =>
-    `<button type="button" class="chip ${activeCat === c.key ? "active" : ""}" data-cat="${c.key}" aria-pressed="${activeCat === c.key}">${c.name} (${counts[c.key] || 0})</button>`
-  ).join("");
+  let html = chipHTML("", "All", TOTAL);
+  const collapsible = CATEGORIES.length > CHIP_COLLAPSED;
+  let cats = (!chipsExpanded && collapsible) ? CATEGORIES.slice(0, CHIP_COLLAPSED) : CATEGORIES;
+  // keep the active category visible even when collapsed
+  if (!chipsExpanded && collapsible && activeCat && !cats.some(c => c.key === activeCat)) {
+    const ac = CATEGORIES.find(c => c.key === activeCat);
+    if (ac) cats = cats.concat(ac);
+  }
+  html += cats.map(c => chipHTML(c.key, c.name, counts[c.key] || 0)).join("");
+  if (collapsible) {
+    const hidden = CATEGORIES.length - CHIP_COLLAPSED;
+    html += chipsExpanded
+      ? `<button type="button" class="chip chip-toggle" data-action="toggle-chips" aria-expanded="true">See less ▴</button>`
+      : `<button type="button" class="chip chip-toggle" data-action="toggle-chips" aria-expanded="false">See more (${hidden}) ▾</button>`;
+  }
   el.innerHTML = html;
 }
 
 /* ---------- Events ---------- */
 document.getElementById("cats").addEventListener("click", e => {
+  const toggle = e.target.closest(".chip-toggle");
+  if (toggle) { chipsExpanded = !chipsExpanded; renderChips(); return; }
   const chip = e.target.closest(".chip"); if (!chip) return;
   activeCat = chip.dataset.cat; renderLimit = 60;
   renderChips(); render();
@@ -1023,6 +1084,7 @@ document.getElementById("reset").addEventListener("click", () => {
 
 /* ---------- Master–detail panel ---------- */
 let currentSolId = null;
+let expandedSteps = new Set();   // subtask indices whose steps are expanded in the open panel
 const detail = document.getElementById("detail");
 const backdrop = document.getElementById("backdrop");
 
@@ -1040,6 +1102,7 @@ function highlightEl(id) { return grid.querySelector(`.card[data-id="${id}"], tr
 function openDetail(solId) {
   const prev = currentSolId;
   lastTrigger = grid.querySelector(`.card[data-id="${solId}"]`) || document.activeElement;
+  if (solId !== prev) expandedSteps = new Set(); // reset step expansion when switching solutions
   currentSolId = solId;
   renderDetail();
   detail.classList.add("open");
@@ -1075,12 +1138,19 @@ function renderDetail() {
   const total = solCost(sol);
   const rows = sol.subs.map((s, idx) => {
     const st = p.st[idx];
+    const steps = stepsFor(sol.id, idx, s.text);
+    const open = expandedSteps.has(idx);
+    const stepsList = `<ol class="dsteps"${open ? "" : " hidden"}>${steps.map(x => `<li>${escapeHTML(x)}</li>`).join("")}</ol>`;
     return `<div class="dsub ${st === "done" ? "done" : ""}">
-      <div class="dsub-main">
-        <span class="dsub-txt">${escapeHTML(s.text)}</span>
-        <span class="dsub-cost" title="Illustrative cost estimate (USD · PHP)">${money2(s.cost)}</span>
+      <div class="dsub-row">
+        <div class="dsub-main">
+          <span class="dsub-txt">${escapeHTML(s.text)}</span>
+          <span class="dsub-cost" title="Illustrative cost estimate (USD · PHP)">${money2(s.cost)}</span>
+        </div>
+        <button class="status-btn s-${st}" data-sub="${idx}">${STATUS_LABEL[st]}</button>
       </div>
-      <button class="status-btn s-${st}" data-sub="${idx}">${STATUS_LABEL[st]}</button>
+      <button class="steps-toggle" data-steps="${idx}" aria-expanded="${open}">${open ? "▾" : "▸"} ${steps.length} steps</button>
+      ${stepsList}
     </div>`;
   }).join("");
   detail.innerHTML = `
@@ -1139,9 +1209,16 @@ grid.addEventListener("keydown", e => {
   }
 });
 
-// Status changes + close, inside the detail panel
+// Status changes, steps expand/collapse, and close — inside the detail panel
 detail.addEventListener("click", e => {
   if (e.target.closest("#detailClose")) { closeDetail(); return; }
+  const steps = e.target.closest(".steps-toggle");
+  if (steps) {
+    const idx = +steps.dataset.steps;
+    if (expandedSteps.has(idx)) expandedSteps.delete(idx); else expandedSteps.add(idx);
+    renderDetail();
+    return;
+  }
   const btn = e.target.closest(".status-btn");
   if (btn && currentSolId) {
     cycleSub(currentSolId, +btn.dataset.sub);
