@@ -20,7 +20,44 @@
     --red: #ff5c7a;
     --grey: #76819e;
     --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --surface-2: #0e1530;   /* inset surfaces (subs, bars, table head) */
   }
+  :root[data-theme="light"] {
+    --bg: #eef1f7;
+    --bg-soft: #ffffff;
+    --card: #ffffff;
+    --card-2: #f5f7fc;
+    --line: #d7deec;
+    --txt: #16203a;
+    --muted: #54607a;
+    --accent: #8a6b00;
+    --accent-2: #0e7fb8;
+    --grey: #7a849c;
+    --shadow: 0 10px 30px rgba(20,30,60,.10);
+    --surface-2: #eef2fa;
+  }
+  /* Light-mode overrides for surfaces that hardcode dark hex values */
+  [data-theme="light"] body {
+    background: radial-gradient(1200px 600px at 80% -10%, #dfe9ff 0%, transparent 60%),
+                radial-gradient(900px 500px at -10% 10%, #e3f3ff 0%, transparent 55%),
+                var(--bg);
+  }
+  [data-theme="light"] .controls { background: rgba(255,255,255,.85); }
+  [data-theme="light"] .bar,
+  [data-theme="light"] .progress-mini { background: #e4e9f4; }
+  [data-theme="light"] .sub,
+  [data-theme="light"] .dsub,
+  [data-theme="light"] .detail-cost > div,
+  [data-theme="light"] .org { background: var(--surface-2); }
+  [data-theme="light"] .detail { background: linear-gradient(180deg, #ffffff, #f5f7fc); }
+  [data-theme="light"] .pill.cost { background: #fff4d6; color: #7a5c00; border-color: #e7d6a0; }
+  [data-theme="light"] table.vtable thead th { background: #eef2fa; }
+  [data-theme="light"] table.vtable tbody tr:hover { background: #eef3fb; }
+  [data-theme="light"] table.vtable tbody tr.active { background: #e3ecfa; }
+  [data-theme="light"] .tablewrap { background: #ffffff; }
+  /* bright category colors are inline; darken them so they read on light bg */
+  [data-theme="light"] .cat,
+  [data-theme="light"] .vt-cat { filter: brightness(.62) saturate(1.5); }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
@@ -218,6 +255,13 @@
   }
   .dsteps li { padding-left: 2px; }
   .dsteps li::marker { color: var(--accent-2); }
+  .orgs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .org {
+    display: inline-block; text-decoration: none; font-size: 12.5px; font-weight: 600;
+    color: var(--accent-2); background: #0e1530; border: 1px solid var(--line);
+    padding: 6px 11px; border-radius: 999px;
+  }
+  .org:hover { border-color: var(--accent-2); }
   .detail-note { color: var(--grey); font-size: 12px; line-height: 1.5; margin-top: 18px; }
   @media (max-width: 760px) {
     .detail { width: 100vw; max-width: none; }
@@ -299,6 +343,7 @@
     <button class="reset" id="exportJson">Export JSON</button>
     <button class="reset" id="exportCsv">Export CSV</button>
     <button class="reset" id="reset">Reset progress</button>
+    <button class="reset" id="themeToggle" aria-pressed="false" title="Toggle light / dark theme">☀︎ Light</button>
     <span class="count" id="count"></span>
   </div>
   <div class="controls-inner" style="margin-top:10px;">
@@ -710,6 +755,29 @@ function stepsFor(solId, subIdx, text) {
   return picked.map(i => STEP_BANK[i].replace("{t}", t));
 }
 
+// Real organizations actively working in each category's space (illustrative,
+// non-exhaustive, mapped at the CATEGORY level — not endorsements, not tied to a
+// specific generated solution). Each links to a web search.
+const COMPANIES = {
+  Efficiency: ["Google Nest", "ecobee", "Sealed", "Aeroseal", "Carrier", "ENERGY STAR (US EPA)"],
+  Solar: ["Sunrun", "SunPower / Maxeon", "Enphase Energy", "Tesla Energy", "SolarEdge", "NREL"],
+  Storage: ["Tesla (Powerwall/Megapack)", "Fluence", "Form Energy", "ESS Inc.", "LG Energy Solution", "Stem Inc."],
+  Demand: ["OhmConnect", "Voltus", "Enel X", "Uplight", "EnergyHub", "AutoGrid"],
+  Grid: ["Schneider Electric", "Siemens Energy", "GE Vernova", "Hitachi Energy", "Itron", "S&C Electric"],
+  Renewables: ["NextEra Energy", "Ørsted", "Vestas", "Iberdrola", "Brookfield Renewable", "EDP Renewables"],
+  Nuclear: ["NuScale Power", "TerraPower", "X-energy", "Westinghouse", "Rolls-Royce SMR", "Constellation Energy"],
+  Transmission: ["Quanta Services", "Hitachi Energy", "Prysmian Group", "LineVision", "GE Vernova", "American Electric Power"],
+  Market: ["FERC", "Rocky Mountain Institute (RMI)", "PJM Interconnection", "CAISO", "NARUC", "The Brattle Group"],
+  Heating: ["Mitsubishi Electric", "Daikin", "Bosch Home Comfort", "Carrier", "Dandelion Energy", "Gradient"],
+  Industry: ["Schneider Electric", "Honeywell", "Johnson Controls", "Siemens", "ABB", "Trane Technologies"],
+  Community: ["Arcadia", "Nexamp", "NRECA (electric co-ops)", "MCE Clean Energy", "Co-op Power", "Ampion"],
+  Transport: ["ChargePoint", "Tesla", "Electrify America", "WeaveGrid", "ev.energy", "Enel X Way"],
+  Finance: ["GoodLeap", "Mosaic", "Sunlight Financial", "PACENation (PACE)", "Dividend Finance", "LIHEAP (US)"],
+  Policy: ["US Dept. of Energy", "US EPA", "International Energy Agency (IEA)", "ACEEE", "ASHRAE", "RMI"],
+  Behavior: ["Oracle Utilities (Opower)", "Uplight", "Sense", "Bidgely", "Arcadia", "Tibber"],
+  Loss: ["Itron", "Landis+Gyr", "Sentient Energy", "S&C Electric", "Schneider Electric", "Sensus (Xylem)"]
+};
+
 const STATUSES = ["todo", "doing", "blocked", "done"];
 const STATUS_LABEL = { todo: "To-do", doing: "In progress", blocked: "Blocked", done: "Done" };
 const STATUS_NEXT = { todo: "doing", doing: "done", done: "blocked", blocked: "todo" };
@@ -890,7 +958,7 @@ function tableHTML(list) {
     const active = currentSolId === sol.id ? " class=\"active\"" : "";
     return `<tr data-id="${sol.id}"${active}>
       <th scope="row"><button type="button" class="rowbtn" data-id="${sol.id}" aria-label="Open details for ${escapeHTML(sol.title)}">#${String(sol.id).padStart(4, "0")}</button></th>
-      <td style="color:${sol.color}">${escapeHTML(sol.cat)}</td>
+      <td class="vt-cat" style="color:${sol.color}">${escapeHTML(sol.cat)}</td>
       <td class="vt-title">${escapeHTML(sol.title)}</td>
       <td><span class="pill impact-${sol.impact}">${sol.impact}</span></td>
       <td>${sol.feasibility}</td>
@@ -1174,7 +1242,11 @@ function renderDetail() {
     <div class="progress-mini detail-prog" role="progressbar" aria-valuenow="${p.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${p.pct}% complete, ${p.done} of ${p.total} subtasks done"><span style="width:${p.pct}%"></span></div>
     <div class="detail-sec">Subtasks &amp; cost per task</div>
     <div class="dsubs">${rows}</div>
-    <p class="detail-note">Cost figures and statuses are illustrative seeded estimates, not sourced data. PHP (₱) amounts are converted at an approximate ${USD_PHP} ₱/$ rate — not a live quote. Click a status to advance it (To-do → In progress → Done → Blocked).</p>`;
+    <div class="detail-sec">Who's working on this</div>
+    <div class="orgs">${(COMPANIES[sol.catKey] || []).map(name =>
+      `<a class="org" href="https://www.google.com/search?q=${encodeURIComponent(name + " " + sol.cat)}" target="_blank" rel="noopener">${escapeHTML(name)} ↗</a>`
+    ).join("")}</div>
+    <p class="detail-note">Cost figures and statuses are illustrative seeded estimates, not sourced data. PHP (₱) amounts are converted at an approximate ${USD_PHP} ₱/$ rate — not a live quote. The organizations above are real companies/institutions active in the <strong>${escapeHTML(sol.cat)}</strong> space — listed at the category level as illustrative, non-exhaustive examples (not endorsements, not tied to this specific solution). Click a status to advance it (To-do → In progress → Done → Blocked).</p>`;
 }
 
 function cycleSub(solId, subIdx) {
@@ -1236,7 +1308,28 @@ new IntersectionObserver(entries => {
   }
 }, { rootMargin: "600px" }).observe(sentinel);
 
+/* ---------- Theme (light / dark) ---------- */
+const THEME_KEY = "voltdown_theme";
+const themeToggle = document.getElementById("themeToggle");
+function applyTheme(theme) {
+  const light = theme === "light";
+  document.documentElement.setAttribute("data-theme", light ? "light" : "");
+  themeToggle.textContent = light ? "☾ Dark" : "☀︎ Light";
+  themeToggle.setAttribute("aria-pressed", String(light));
+}
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch {}
+  applyTheme(saved || "dark");
+}
+themeToggle.addEventListener("click", () => {
+  const light = document.documentElement.getAttribute("data-theme") !== "light";
+  applyTheme(light ? "light" : "dark");
+  try { localStorage.setItem(THEME_KEY, light ? "light" : "dark"); } catch {}
+});
+
 /* ---------- Init ---------- */
+initTheme();
 renderChips();
 renderStats();
 render();
