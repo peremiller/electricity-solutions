@@ -987,6 +987,8 @@ function setBackgroundInert(on) {
     else { elx.removeAttribute("inert"); elx.removeAttribute("aria-hidden"); }
   });
 }
+// active highlight works in either view (.card or table tr)
+function highlightEl(id) { return grid.querySelector(`.card[data-id="${id}"], tr[data-id="${id}"]`); }
 function openDetail(solId) {
   const prev = currentSolId;
   lastTrigger = grid.querySelector(`.card[data-id="${solId}"]`) || document.activeElement;
@@ -995,9 +997,9 @@ function openDetail(solId) {
   detail.classList.add("open");
   backdrop.classList.add("open");
   document.body.classList.add("detail-open");
-  // refresh active highlight on cards
-  if (prev) { const pc = grid.querySelector(`.card[data-id="${prev}"]`); if (pc) pc.classList.remove("active"); }
-  const cc = grid.querySelector(`.card[data-id="${solId}"]`); if (cc) cc.classList.add("active");
+  // refresh active highlight on the open item (card or table row)
+  if (prev) { const pc = highlightEl(prev); if (pc) pc.classList.remove("active"); }
+  const cc = highlightEl(solId); if (cc) cc.classList.add("active");
   detail.scrollTop = 0;
   // modality + move focus into the dialog
   setBackgroundInert(true);
@@ -1009,11 +1011,11 @@ function closeDetail() {
   detail.classList.remove("open");
   backdrop.classList.remove("open");
   document.body.classList.remove("detail-open");
-  const card = currentSolId ? grid.querySelector(`.card[data-id="${currentSolId}"]`) : null;
-  if (card) card.classList.remove("active");
+  const activeEl = currentSolId ? highlightEl(currentSolId) : null;
+  if (activeEl) activeEl.classList.remove("active");
   currentSolId = null;
   setBackgroundInert(false); // un-inert before returning focus
-  const target = card || lastTrigger;
+  const target = lastTrigger || activeEl;
   if (target && target.focus) target.focus();
   lastTrigger = null;
 }
