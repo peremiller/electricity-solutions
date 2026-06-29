@@ -77,6 +77,14 @@
   }
   input[type="search"] { flex: 1 1 280px; min-width: 200px; }
   input[type="search"]:focus, select:focus { border-color: var(--accent-2); }
+  .slider-wrap { display: inline-flex; align-items: center; gap: 10px; }
+  .slider-label { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  #costSlider { width: 220px; max-width: 46vw; accent-color: var(--accent-2); cursor: pointer; }
+  #costSlider:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 4px; }
+  .slider-val {
+    font-size: 13px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums;
+    min-width: 120px; white-space: nowrap;
+  }
   .chiprow { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
     border: 1px solid var(--line); background: var(--bg-soft); color: var(--muted);
@@ -279,6 +287,15 @@
     <button class="reset" id="exportCsv">Export CSV</button>
     <button class="reset" id="reset">Reset progress</button>
     <span class="count" id="count"></span>
+  </div>
+  <div class="controls-inner" style="margin-top:10px;">
+    <label class="slider-wrap">
+      <span class="slider-label">Max cost</span>
+      <input type="range" id="costSlider" min="0" max="100" value="100" step="1"
+             aria-label="Maximum solution cost" aria-valuetext="Any" />
+      <span class="slider-val" id="costSliderVal">Any</span>
+    </label>
+    <button class="reset" id="costClear" type="button" hidden>Clear cost</button>
   </div>
   <div class="controls-inner" style="margin-top:10px;">
     <div class="chiprow" id="cats"></div>
@@ -752,12 +769,21 @@ let sortMode = "id";
 let viewMode = "cards";   // "cards" | "table"
 let renderLimit = 60;     // infinite-scroll batch
 
+// Cost-filter domain (per-solution total cost). Log-scaled because costs are very skewed.
+const COST_MIN = Math.min(...SOLUTIONS.map(solCost));
+const COST_MAX = Math.max(...SOLUTIONS.map(solCost));
+let costMax = Infinity;   // current "max cost" threshold; Infinity = show all
+function sliderToCost(v) { // v: 0..100 → cost on a log scale
+  return Math.round(COST_MIN * Math.pow(COST_MAX / COST_MIN, v / 100));
+}
+
 const grid = document.getElementById("grid");
 const emptyEl = document.getElementById("empty");
 const countEl = document.getElementById("count");
 
 function matches(sol) {
   if (activeCat && sol.catKey !== activeCat) return false;
+  if (costMax !== Infinity && solCost(sol) > costMax) return false;
   const { st } = solProgress(sol);
   if (statusFilter === "done" && !st.every(x => x === "done")) return false;
   if (statusFilter && statusFilter !== "done" && !st.includes(statusFilter)) return false;
@@ -918,6 +944,28 @@ function setView(mode) {
 }
 document.getElementById("viewCards").addEventListener("click", () => setView("cards"));
 document.getElementById("viewTable").addEventListener("click", () => setView("table"));
+
+const costSlider = document.getElementById("costSlider");
+const costSliderVal = document.getElementById("costSliderVal");
+const costClear = document.getElementById("costClear");
+function applyCostSlider() {
+  const v = +costSlider.value;
+  if (v >= 100) {
+    costMax = Infinity;
+    costSliderVal.textContent = "Any";
+    costSlider.setAttribute("aria-valuetext", "Any");
+    costClear.hidden = true;
+  } else {
+    costMax = sliderToCost(v);
+    const label = "≤ " + money2(costMax);
+    costSliderVal.textContent = label;
+    costSlider.setAttribute("aria-valuetext", label);
+    costClear.hidden = false;
+  }
+  renderLimit = 60; render();
+}
+costSlider.addEventListener("input", applyCostSlider);
+costClear.addEventListener("click", () => { costSlider.value = 100; applyCostSlider(); });
 function currentRows() {
   // one row per subtask, reflecting any saved status overrides
   const rows = [];
