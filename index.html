@@ -201,6 +201,31 @@
   @media (max-width: 760px) {
     .detail { width: 100vw; max-width: none; }
   }
+  .viewtoggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .vt {
+    background: var(--bg-soft); color: var(--muted); border: none; cursor: pointer;
+    padding: 10px 12px; font-size: 13px; font-family: inherit;
+  }
+  .vt + .vt { border-left: 1px solid var(--line); }
+  .vt.active { background: var(--accent-2); color: #0b1020; font-weight: 600; }
+  .tablewrap { display: block; overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table.vtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.vtable thead th {
+    text-align: left; white-space: nowrap;
+    background: #0e1530; color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .5px; padding: 10px 12px; border-bottom: 1px solid var(--line);
+  }
+  table.vtable td, table.vtable th[scope="row"] { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.vtable tbody tr { cursor: pointer; }
+  table.vtable tbody tr:hover { background: #16203f; }
+  table.vtable tbody tr.active { background: #1b2548; box-shadow: inset 3px 0 0 var(--accent); }
+  .vt-title { color: var(--txt); max-width: 360px; }
+  .vt-money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rowbtn {
+    background: none; border: none; color: var(--accent-2); cursor: pointer; font: inherit;
+    font-variant-numeric: tabular-nums; padding: 0; text-align: left;
+  }
+  .rowbtn:hover { text-decoration: underline; }
   .sentinel { height: 1px; }
   .empty { text-align: center; color: var(--muted); padding: 60px 0; }
   footer { text-align: center; color: var(--grey); font-size: 12px; padding: 30px 0 50px; }
@@ -246,6 +271,10 @@
       <option value="feasibility">Feasibility: High first</option>
       <option value="quickwins">Quick wins (impact × feasibility)</option>
     </select>
+    <div class="viewtoggle" role="group" aria-label="View mode">
+      <button type="button" id="viewCards" class="vt active" aria-pressed="true">▦ Cards</button>
+      <button type="button" id="viewTable" class="vt" aria-pressed="false">▤ Table</button>
+    </div>
     <button class="reset" id="exportJson">Export JSON</button>
     <button class="reset" id="exportCsv">Export CSV</button>
     <button class="reset" id="reset">Reset progress</button>
@@ -586,6 +615,18 @@ function formatMoney(n) {
   if (n >= 1e3) return "$" + Math.round(n / 1e3) + "K";
   return "$" + n;
 }
+// Approximate, illustrative USD→PHP rate (not a live quote).
+const USD_PHP = 58.5;
+function toPHP(n) { return Math.round(n * USD_PHP); }
+function formatPHP(n) {
+  const v = n * USD_PHP;
+  if (v >= 1e9) return "₱" + (v / 1e9).toFixed(v >= 1e10 ? 0 : 1) + "B";
+  if (v >= 1e6) return "₱" + (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + "M";
+  if (v >= 1e3) return "₱" + Math.round(v / 1e3) + "K";
+  return "₱" + Math.round(v);
+}
+// "$X · ₱Y" dual-currency display used wherever a price is shown.
+function money2(n) { return formatMoney(n) + " · " + formatPHP(n); }
 function solCost(sol) { return sol.subs.reduce((a, s) => a + (s.cost || 0), 0); }
 function feasBand(n) { return n >= 75 ? "High" : n >= 50 ? "Medium" : "Low"; }
 
@@ -708,6 +749,7 @@ let activeCat = "";       // category key filter
 let searchQ = "";
 let statusFilter = "";
 let sortMode = "id";
+let viewMode = "cards";   // "cards" | "table"
 let renderLimit = 60;     // infinite-scroll batch
 
 const grid = document.getElementById("grid");
@@ -755,7 +797,7 @@ function cardHTML(sol) {
     <div class="meta">
       <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
       <span class="pill feas-${feasBand(sol.feasibility)}" title="Feasibility ${sol.feasibility}/100 — illustrative">${sol.feasibility} feasibility</span>
-      <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative">${formatMoney(solCost(sol))}</span>
+      <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative · ≈₱${toPHP(solCost(sol)).toLocaleString()}">${money2(solCost(sol))}</span>
       <div class="progress-mini" role="progressbar" aria-valuenow="${p.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${p.done} of ${p.total} subtasks done"><span style="width:${p.pct}%"></span></div>
       <span class="idtag">${p.done}/${p.total}</span>
     </div>
@@ -767,11 +809,42 @@ function escapeHTML(s) {
   return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+function tableHTML(list) {
+  const head = `<thead><tr>
+    <th scope="col">#</th><th scope="col">Category</th><th scope="col">Solution</th>
+    <th scope="col">Impact</th><th scope="col">Feas.</th>
+    <th scope="col">Est. cost (USD)</th><th scope="col">Est. cost (PHP)</th>
+    <th scope="col">Subtasks</th><th scope="col">Progress</th>
+  </tr></thead>`;
+  const body = list.map(sol => {
+    const p = solProgress(sol);
+    const active = currentSolId === sol.id ? " class=\"active\"" : "";
+    return `<tr data-id="${sol.id}"${active}>
+      <th scope="row"><button type="button" class="rowbtn" data-id="${sol.id}" aria-label="Open details for ${escapeHTML(sol.title)}">#${String(sol.id).padStart(4, "0")}</button></th>
+      <td style="color:${sol.color}">${escapeHTML(sol.cat)}</td>
+      <td class="vt-title">${escapeHTML(sol.title)}</td>
+      <td><span class="pill impact-${sol.impact}">${sol.impact}</span></td>
+      <td>${sol.feasibility}</td>
+      <td class="vt-money">${formatMoney(solCost(sol))}</td>
+      <td class="vt-money">${formatPHP(solCost(sol))}</td>
+      <td>${sol.subs.length}</td>
+      <td>${p.done}/${p.total} · ${p.pct}%</td>
+    </tr>`;
+  }).join("");
+  return `<table class="vtable">${head}<tbody>${body}</tbody></table>`;
+}
+
 function render() {
   const list = filteredSorted();
   countEl.textContent = `${list.length.toLocaleString()} of ${TOTAL.toLocaleString()} shown`;
   const slice = list.slice(0, renderLimit);
-  grid.innerHTML = slice.map(cardHTML).join("");
+  if (viewMode === "table") {
+    grid.className = "tablewrap";
+    grid.innerHTML = tableHTML(slice);
+  } else {
+    grid.className = "grid";
+    grid.innerHTML = slice.map(cardHTML).join("");
+  }
   emptyEl.style.display = list.length === 0 ? "block" : "none";
   window._fullCount = list.length;
 }
@@ -834,6 +907,17 @@ document.getElementById("statusFilter").addEventListener("change", e => {
 document.getElementById("sort").addEventListener("change", e => {
   sortMode = e.target.value; renderLimit = 60; render();
 });
+function setView(mode) {
+  viewMode = mode; renderLimit = 60;
+  const cardsBtn = document.getElementById("viewCards"), tableBtn = document.getElementById("viewTable");
+  cardsBtn.classList.toggle("active", mode === "cards");
+  tableBtn.classList.toggle("active", mode === "table");
+  cardsBtn.setAttribute("aria-pressed", mode === "cards");
+  tableBtn.setAttribute("aria-pressed", mode === "table");
+  render();
+}
+document.getElementById("viewCards").addEventListener("click", () => setView("cards"));
+document.getElementById("viewTable").addEventListener("click", () => setView("table"));
 function currentRows() {
   // one row per subtask, reflecting any saved status overrides
   const rows = [];
@@ -847,10 +931,12 @@ function currentRows() {
         feasibility: sol.feasibility,
         feasibility_band: feasBand(sol.feasibility),
         cost_tier: sol.cost,
-        solution_est_cost: solCost(sol),
+        solution_est_cost_usd: solCost(sol),
+        solution_est_cost_php: toPHP(solCost(sol)),
         subtask_index: idx + 1,
         subtask: s.text,
-        subtask_est_cost: s.cost,
+        subtask_est_cost_usd: s.cost,
+        subtask_est_cost_php: toPHP(s.cost),
         status: STATUS_LABEL[subStatus(sol.id, idx, s.status)]
       });
     });
@@ -869,14 +955,14 @@ document.getElementById("exportJson").addEventListener("click", () => {
   const data = SOLUTIONS.map(sol => ({
     id: sol.id, category: sol.cat, title: sol.title, impact: sol.impact,
     feasibility: sol.feasibility, feasibility_band: feasBand(sol.feasibility),
-    cost_tier: sol.cost, est_total_cost: solCost(sol),
-    subtasks: sol.subs.map((s, idx) => ({ task: s.text, est_cost: s.cost, status: STATUS_LABEL[subStatus(sol.id, idx, s.status)] }))
+    cost_tier: sol.cost, est_total_cost_usd: solCost(sol), est_total_cost_php: toPHP(solCost(sol)),
+    subtasks: sol.subs.map((s, idx) => ({ task: s.text, est_cost_usd: s.cost, est_cost_php: toPHP(s.cost), status: STATUS_LABEL[subStatus(sol.id, idx, s.status)] }))
   }));
   download("voltdown-solutions.json", JSON.stringify(data, null, 2), "application/json");
 });
 document.getElementById("exportCsv").addEventListener("click", () => {
   const rows = currentRows();
-  const cols = ["solution_id", "category", "solution", "impact", "feasibility", "feasibility_band", "cost_tier", "solution_est_cost", "subtask_index", "subtask", "subtask_est_cost", "status"];
+  const cols = ["solution_id", "category", "solution", "impact", "feasibility", "feasibility_band", "cost_tier", "solution_est_cost_usd", "solution_est_cost_php", "subtask_index", "subtask", "subtask_est_cost_usd", "subtask_est_cost_php", "status"];
   const esc = v => `"${String(v).replace(/"/g, '""')}"`;
   const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => esc(r[c])).join(","))).join("\r\n");
   download("voltdown-solutions.csv", csv, "text/csv");
@@ -942,7 +1028,7 @@ function renderDetail() {
     return `<div class="dsub ${st === "done" ? "done" : ""}">
       <div class="dsub-main">
         <span class="dsub-txt">${escapeHTML(s.text)}</span>
-        <span class="dsub-cost" title="Illustrative cost estimate">${formatMoney(s.cost)}</span>
+        <span class="dsub-cost" title="Illustrative cost estimate (USD · PHP)">${money2(s.cost)}</span>
       </div>
       <button class="status-btn s-${st}" data-sub="${idx}">${STATUS_LABEL[st]}</button>
     </div>`;
@@ -960,7 +1046,7 @@ function renderDetail() {
       <span class="pill cost" title="${COST_TIER_LABEL[sol.cost]} — illustrative">${COST_TIER_LABEL[sol.cost]}</span>
     </div>
     <div class="detail-cost">
-      <div><div class="dc-n">${formatMoney(total)}</div><div class="dc-l">Est. total cost</div></div>
+      <div><div class="dc-n">${formatMoney(total)}<span class="dc-sub"> · ${formatPHP(total)}</span></div><div class="dc-l">Est. total cost (USD · PHP)</div></div>
       <div><div class="dc-n">${sol.feasibility}<span class="dc-sub">/100</span></div><div class="dc-l">Feasibility</div></div>
       <div><div class="dc-n">${p.done}/${p.total}</div><div class="dc-l">Subtasks done</div></div>
       <div><div class="dc-n">${p.pct}%</div><div class="dc-l">Complete</div></div>
@@ -968,7 +1054,7 @@ function renderDetail() {
     <div class="progress-mini detail-prog" role="progressbar" aria-valuenow="${p.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${p.pct}% complete, ${p.done} of ${p.total} subtasks done"><span style="width:${p.pct}%"></span></div>
     <div class="detail-sec">Subtasks &amp; cost per task</div>
     <div class="dsubs">${rows}</div>
-    <p class="detail-note">Cost figures and statuses are illustrative seeded estimates, not sourced data — click a status to advance it (To-do → In progress → Done → Blocked).</p>`;
+    <p class="detail-note">Cost figures and statuses are illustrative seeded estimates, not sourced data. PHP (₱) amounts are converted at an approximate ${USD_PHP} ₱/$ rate — not a live quote. Click a status to advance it (To-do → In progress → Done → Blocked).</p>`;
 }
 
 function cycleSub(solId, subIdx) {
@@ -987,14 +1073,14 @@ function cycleSub(solId, subIdx) {
     card.querySelector(".meta .idtag").textContent = `${p.done}/${p.total}`;
   }
   renderStats();
-  // If the active filter or sort depends on status, re-render so membership/order stay correct.
-  if (statusFilter || sortMode === "progress-asc" || sortMode === "progress-desc") render();
+  // Re-render when membership/order/row-cells depend on the change (filters, progress sorts, or table view).
+  if (statusFilter || sortMode === "progress-asc" || sortMode === "progress-desc" || viewMode === "table") render();
 }
 
-// Clicking a card opens its detail panel
+// Clicking a card (or a table row) opens its detail panel
 grid.addEventListener("click", e => {
-  const card = e.target.closest(".card");
-  if (card) openDetail(+card.dataset.id);
+  const el = e.target.closest(".card, tr[data-id]");
+  if (el) openDetail(+el.dataset.id);
 });
 grid.addEventListener("keydown", e => {
   if (e.key === "Enter" || e.key === " ") {
