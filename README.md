@@ -37,6 +37,9 @@ VoltDown is built to be usable with a keyboard and a screen reader:
 - **Focus management** — when the panel opens, focus moves into it (onto the close button); the background (header, stats, controls, and main grid) is set `inert` so it can't be reached by keyboard or screen reader while the dialog is open. When the panel closes, focus returns to the card that opened it.
 - **Labeled controls** — the search input and the status and sort `<select>`s all carry `aria-label`s so their purpose is clear even without a visible `<label>`.
 - **Higher-contrast "Low" pills** — the **Low impact** and **Low feasibility** pills now use higher-contrast text plus a visible border, so they no longer rely on color alone and meet contrast expectations.
+- **Keyboard-operable filter chips** — the category filter chips are real `<button type="button">` elements with `aria-pressed` reflecting the active category, so they can be reached and toggled with the keyboard (not just the mouse).
+- **Screen-reader status announcements** — a visually-hidden live region (`role="status"` / `aria-live="polite"`) announces subtask status changes (e.g. "… set to In progress") so screen-reader users hear updates as they cycle a status.
+- **Progressbar semantics** — every progress bar (the per-card mini-bars, the detail-panel bar, and the stats segmented bar) carries `role="progressbar"` with `aria-valuenow` / `aria-valuemin` / `aria-valuemax` and a summarizing `aria-label`, so assistive tech can read out progress.
 - **Visible focus ring** — a shared `:focus-visible` ring is applied to chips, buttons, inputs, and selects, so keyboard focus is always clearly visible.
 
 ## How the data is generated
