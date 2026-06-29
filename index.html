@@ -106,10 +106,10 @@
   }
   .pill.impact-High { color: #0b1020; background: var(--green); border-color: var(--green); }
   .pill.impact-Medium { color: #0b1020; background: var(--amber); border-color: var(--amber); }
-  .pill.impact-Low { color: var(--muted); }
+  .pill.impact-Low { color: var(--txt); border-color: var(--line); }
   .pill.feas-High { color: #0b1020; background: var(--accent-2); border-color: var(--accent-2); }
   .pill.feas-Medium { color: #0b1020; background: #7da7ff; border-color: #7da7ff; }
-  .pill.feas-Low { color: var(--muted); }
+  .pill.feas-Low { color: var(--txt); border-color: var(--line); }
   .pill.cost { color: var(--accent); border-color: #4a3f10; background: #221c06; }
   .progress-mini { flex: 1 1 90px; height: 6px; border-radius: 6px; background: #0d1430; overflow: hidden; min-width: 60px; }
   .progress-mini > span { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--accent-2)); }
@@ -142,6 +142,10 @@
   .card:active { transform: scale(.995); }
   .card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
   .card:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .chip:focus-visible, .status-btn:focus-visible, .detail-close:focus-visible,
+  .reset:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent-2); outline-offset: 2px;
+  }
   .cardhint { color: var(--grey); font-size: 12px; margin-top: 2px; }
 
   .backdrop {
@@ -221,15 +225,15 @@
 
 <div class="controls">
   <div class="controls-inner">
-    <input type="search" id="search" placeholder="Search 1,000 solutions, subtasks, categories…" />
-    <select id="statusFilter">
+    <input type="search" id="search" aria-label="Search solutions, subtasks, and categories" placeholder="Search 1,000 solutions, subtasks, categories…" />
+    <select id="statusFilter" aria-label="Filter by status">
       <option value="">All statuses</option>
       <option value="todo">Has To-do</option>
       <option value="doing">Has In-progress</option>
       <option value="blocked">Has Blocked</option>
       <option value="done">Fully complete</option>
     </select>
-    <select id="sort">
+    <select id="sort" aria-label="Sort solutions">
       <option value="id">Sort: Default</option>
       <option value="progress-asc">Progress: Low → High</option>
       <option value="progress-desc">Progress: High → Low</option>
@@ -254,7 +258,7 @@
 </main>
 
 <div class="backdrop" id="backdrop"></div>
-<aside class="detail" id="detail" aria-live="polite"></aside>
+<aside class="detail" id="detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle" tabindex="-1"></aside>
 
 <footer>VoltDown · Generated locally in your browser · Status changes saved to this device only.</footer>
 
@@ -882,8 +886,18 @@ let currentSolId = null;
 const detail = document.getElementById("detail");
 const backdrop = document.getElementById("backdrop");
 
+let lastTrigger = null;
+function setBackgroundInert(on) {
+  ["header", ".stats", ".controls", "main"].forEach(sel => {
+    const elx = document.querySelector(sel);
+    if (!elx) return;
+    if (on) { elx.setAttribute("inert", ""); elx.setAttribute("aria-hidden", "true"); }
+    else { elx.removeAttribute("inert"); elx.removeAttribute("aria-hidden"); }
+  });
+}
 function openDetail(solId) {
   const prev = currentSolId;
+  lastTrigger = grid.querySelector(`.card[data-id="${solId}"]`) || document.activeElement;
   currentSolId = solId;
   renderDetail();
   detail.classList.add("open");
@@ -893,13 +907,23 @@ function openDetail(solId) {
   if (prev) { const pc = grid.querySelector(`.card[data-id="${prev}"]`); if (pc) pc.classList.remove("active"); }
   const cc = grid.querySelector(`.card[data-id="${solId}"]`); if (cc) cc.classList.add("active");
   detail.scrollTop = 0;
+  // modality + move focus into the dialog
+  setBackgroundInert(true);
+  const closeBtn = document.getElementById("detailClose");
+  if (closeBtn) closeBtn.focus();
 }
 function closeDetail() {
+  if (!currentSolId && !detail.classList.contains("open")) return;
   detail.classList.remove("open");
   backdrop.classList.remove("open");
   document.body.classList.remove("detail-open");
-  if (currentSolId) { const c = grid.querySelector(`.card[data-id="${currentSolId}"]`); if (c) c.classList.remove("active"); }
+  const card = currentSolId ? grid.querySelector(`.card[data-id="${currentSolId}"]`) : null;
+  if (card) card.classList.remove("active");
   currentSolId = null;
+  setBackgroundInert(false); // un-inert before returning focus
+  const target = card || lastTrigger;
+  if (target && target.focus) target.focus();
+  lastTrigger = null;
 }
 
 function renderDetail() {
@@ -923,7 +947,7 @@ function renderDetail() {
       <button class="detail-close" id="detailClose" aria-label="Close details">✕</button>
     </div>
     <div class="detail-id">Solution #${String(sol.id).padStart(4, "0")}</div>
-    <h2 class="detail-title">${escapeHTML(sol.title)}</h2>
+    <h2 class="detail-title" id="detailTitle">${escapeHTML(sol.title)}</h2>
     <div class="meta">
       <span class="pill impact-${sol.impact}">${sol.impact} impact</span>
       <span class="pill feas-${feasBand(sol.feasibility)}" title="Feasibility ${sol.feasibility}/100">${feasBand(sol.feasibility)} feasibility</span>
@@ -954,6 +978,8 @@ function cycleSub(solId, subIdx) {
     card.querySelector(".meta .idtag").textContent = `${p.done}/${p.total}`;
   }
   renderStats();
+  // If the active filter or sort depends on status, re-render so membership/order stay correct.
+  if (statusFilter || sortMode === "progress-asc" || sortMode === "progress-desc") render();
 }
 
 // Clicking a card opens its detail panel

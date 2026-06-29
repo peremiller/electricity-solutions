@@ -18,16 +18,26 @@ These numbers were verified by running the generator in Node:
 - **Status filter** — show solutions that have a To-do, an In-progress, or a Blocked subtask, or that are fully complete.
 - **Sort** by progress (low → high or high → low), by impact (High first), by **feasibility (High first)**, or by **quick wins (impact × feasibility)** — surfacing solutions that are both high-impact and highly feasible — plus a default order.
 - **Live stats bar** — totals for solutions, subtasks, fully-complete solutions, percent of subtasks done, and blocked subtasks, with a **segmented progress bar** showing the done / in-progress / blocked / to-do mix.
-- **Master–detail panel** — click a card (or focus it and press **Enter**/**Space**) to slide open a right-side detail panel showing the solution's full subtask list, each subtask's estimated cost, the rolled-up estimated total, and live progress. Close it with the **✕** button, the **Esc** key, or by clicking the backdrop. Cards are keyboard-accessible (`role="button"`, focusable, with an ARIA label) and the active card stays highlighted while the panel is open.
+- **Master–detail panel** — click a card (or focus it and press **Enter**/**Space**) to slide open a right-side detail panel showing the solution's full subtask list, each subtask's estimated cost, the rolled-up estimated total, and live progress. Close it with the **✕** button, the **Esc** key, or by clicking the backdrop. Cards are keyboard-accessible (`role="button"`, focusable, with an ARIA label) and the active card stays highlighted while the panel is open. The panel is a focus-managed dialog — see **Accessibility** below.
 - **Per-subtask cost + per-solution total** — every subtask carries an illustrative estimated cost (USD), and each solution rolls them up into an **estimated total cost** shown as a pill on the card and broken out in the detail panel.
 - **Feasibility score** — every solution carries an illustrative **feasibility score (0–100)**, displayed as a **High / Medium / Low** band, shown next to the impact and cost pills on both the cards and the right-side detail panel.
-- **Clickable status cycling** — click any subtask status (on a card or in the panel) to advance it through **To-do → In progress → Done → Blocked** and back to To-do.
+- **Clickable status cycling** — click any subtask status (on a card or in the panel) to advance it through **To-do → In progress → Done → Blocked** and back to To-do. Changing a status inside the panel now re-renders the grid live whenever a status-dependent filter or the progress sort is active, so affected cards leave or reorder correctly without a manual refresh.
 - **Per-card mini progress** — each card shows a small progress bar and a `done/total` count that updates instantly as you change statuses.
 - **localStorage persistence** — your status changes are saved to your device and restored on reload.
 - **Reset progress** — clear all saved status changes (with a confirmation prompt).
 - **Export JSON** and **Export CSV** — download the full catalog (with your current statuses, **the cost columns** — per-subtask estimated cost and the per-solution rolled-up estimated total — and the **feasibility score and band**) as `voltdown-solutions.json` or `voltdown-solutions.csv`.
 - **Infinite scroll** — cards load in batches of ~60 as you scroll, so all 1,000 solutions stay responsive.
 - **Responsive dark theme** — a polished dark UI that reflows to a single column on small screens.
+
+## Accessibility
+
+VoltDown is built to be usable with a keyboard and a screen reader:
+
+- **Detail panel is a proper dialog** — the right-side panel is marked up as `role="dialog"` with `aria-modal="true"` and `aria-labelledby="detailTitle"`, so assistive tech announces it as a modal tied to the solution's title.
+- **Focus management** — when the panel opens, focus moves into it (onto the close button); the background (header, stats, controls, and main grid) is set `inert` so it can't be reached by keyboard or screen reader while the dialog is open. When the panel closes, focus returns to the card that opened it.
+- **Labeled controls** — the search input and the status and sort `<select>`s all carry `aria-label`s so their purpose is clear even without a visible `<label>`.
+- **Higher-contrast "Low" pills** — the **Low impact** and **Low feasibility** pills now use higher-contrast text plus a visible border, so they no longer rely on color alone and meet contrast expectations.
+- **Visible focus ring** — a shared `:focus-visible` ring is applied to chips, buttons, inputs, and selects, so keyboard focus is always clearly visible.
 
 ## How the data is generated
 
