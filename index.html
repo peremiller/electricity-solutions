@@ -59,6 +59,8 @@
   /* bright category colors are inline; darken them so they read on light bg */
   [data-theme="light"] .cat,
   [data-theme="light"] .vt-cat { filter: brightness(.62) saturate(1.5); }
+  .skip-link { position: absolute; left: 16px; top: -90px; z-index: 100; background: var(--bg-soft); color: var(--txt); border: 2px solid var(--accent-2); padding: 10px 14px; border-radius: 8px; }
+  .skip-link:focus { top: 10px; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
@@ -308,6 +310,7 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to solutions</a>
 <header>
   <div class="brand">
     <div class="logo"><img src="favicon.svg" alt="" aria-hidden="true"></div>
@@ -362,7 +365,7 @@
   </div>
 </div>
 
-<main>
+<main id="main-content" tabindex="-1">
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" style="display:none;">No solutions match your filters.</div>
   <div class="sentinel" id="sentinel"></div>
@@ -847,8 +850,11 @@ const SOLUTIONS = generate();
 /* ---------- Persistence ---------- */
 const STORE_KEY = "voltdown_status_v1";
 function loadOverrides() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
-  catch { return {}; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+    // Ignore invalid storage shapes without erasing the saved original.
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  } catch { return {}; }
 }
 function saveOverrides(o) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch {}
@@ -857,7 +863,8 @@ let OVERRIDES = loadOverrides();
 
 function subStatus(solId, subIdx, baseStatus) {
   const k = solId + ":" + subIdx;
-  return (OVERRIDES[k] != null) ? OVERRIDES[k] : baseStatus;
+  const saved = OVERRIDES[k];
+  return typeof saved === "string" && Object.prototype.hasOwnProperty.call(STATUS_NEXT, saved) ? saved : baseStatus;
 }
 function setSubStatus(solId, subIdx, status) {
   OVERRIDES[solId + ":" + subIdx] = status;
@@ -1159,6 +1166,18 @@ const detail = document.getElementById("detail");
 const backdrop = document.getElementById("backdrop");
 
 let lastTrigger = null;
+function solutionIdFromUrl() {
+  const raw = new URL(window.location.href).searchParams.get("solution");
+  if (!raw || !/^[1-9]\\d*$/.test(raw)) return null;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id <= SOLUTIONS.length ? id : null;
+}
+function setSolutionUrl(id) {
+  const url = new URL(window.location.href);
+  if (id === null) url.searchParams.delete("solution");
+  else url.searchParams.set("solution", String(id));
+  window.history.pushState(window.history.state, "", url.pathname + url.search + url.hash);
+}
 function setBackgroundInert(on) {
   ["header", ".stats", ".controls", "main"].forEach(sel => {
     const elx = document.querySelector(sel);
@@ -1169,7 +1188,8 @@ function setBackgroundInert(on) {
 }
 // active highlight works in either view (.card or table tr)
 function highlightEl(id) { return grid.querySelector(`.card[data-id="${id}"], tr[data-id="${id}"]`); }
-function openDetail(solId) {
+function openDetail(solId, updateUrl = true) {
+  if (!Number.isSafeInteger(solId) || solId < 1 || solId > SOLUTIONS.length) return;
   const prev = currentSolId;
   lastTrigger = grid.querySelector(`.card[data-id="${solId}"]`) || document.activeElement;
   if (solId !== prev) expandedSteps = new Set(); // reset step expansion when switching solutions
@@ -1186,8 +1206,9 @@ function openDetail(solId) {
   setBackgroundInert(true);
   const closeBtn = document.getElementById("detailClose");
   if (closeBtn) closeBtn.focus();
+  if (updateUrl && solutionIdFromUrl() !== solId) setSolutionUrl(solId);
 }
-function closeDetail() {
+function closeDetail(updateUrl = true) {
   if (!currentSolId && !detail.classList.contains("open")) return;
   detail.classList.remove("open");
   backdrop.classList.remove("open");
@@ -1199,6 +1220,7 @@ function closeDetail() {
   const target = lastTrigger || activeEl;
   if (target && target.focus) target.focus();
   lastTrigger = null;
+  if (updateUrl && solutionIdFromUrl() !== null) setSolutionUrl(null);
 }
 
 function renderDetail() {
@@ -1291,16 +1313,24 @@ detail.addEventListener("click", e => {
     const idx = +steps.dataset.steps;
     if (expandedSteps.has(idx)) expandedSteps.delete(idx); else expandedSteps.add(idx);
     renderDetail();
+    detail.querySelector(`.steps-toggle[data-steps="${idx}"]`)?.focus();
     return;
   }
   const btn = e.target.closest(".status-btn");
   if (btn && currentSolId) {
-    cycleSub(currentSolId, +btn.dataset.sub);
+    const idx = +btn.dataset.sub;
+    cycleSub(currentSolId, idx);
     renderDetail();
+    detail.querySelector(`.status-btn[data-sub="${idx}"]`)?.focus();
   }
 });
 backdrop.addEventListener("click", closeDetail);
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+window.addEventListener("popstate", () => {
+  const id = solutionIdFromUrl();
+  if (id !== null && id !== currentSolId) openDetail(id, false);
+  else if (id === null && currentSolId !== null) closeDetail(false);
+});
 
 /* ---------- Infinite scroll ---------- */
 const sentinel = document.getElementById("sentinel");
@@ -1335,6 +1365,8 @@ initTheme();
 renderChips();
 renderStats();
 render();
+const initialSolution = solutionIdFromUrl();
+if (initialSolution !== null) openDetail(initialSolution, false);
 </script>
 </body>
 </html>
