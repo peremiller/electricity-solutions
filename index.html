@@ -304,8 +304,17 @@
   }
   .reset:hover { border-color: var(--red); color: var(--red); }
   @media (max-width: 720px) {
-    .stats { grid-template-columns: repeat(2, 1fr); }
-    .grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .stat { min-width: 0; }
+  }
+  @media (max-width: 480px) {
+    .controls-inner, .slider-wrap { min-width: 0; width: 100%; }
+    .slider-wrap { flex-wrap: wrap; }
+    #costSlider { width: 100%; max-width: 100%; flex: 1 1 100%; }
+    .slider-val { min-width: 0; flex: 1 1 auto; white-space: normal; overflow-wrap: anywhere; }
+    input[type="search"] { min-width: 0; flex-basis: 100%; }
+    .stat .n { overflow-wrap: anywhere; }
   }
 </style>
 </head>
@@ -1366,7 +1375,13 @@ renderChips();
 renderStats();
 render();
 const initialSolution = solutionIdFromUrl();
-if (initialSolution !== null) openDetail(initialSolution, false);
+if (initialSolution !== null) {
+  openDetail(initialSolution, false);
+  // The browser can focus a fragment target after parsing; retain dialog focus on direct loads.
+  window.addEventListener("load", () => {
+    if (currentSolId === initialSolution) document.getElementById("detailClose")?.focus();
+  }, { once: true });
+}
 </script>
 </body>
 </html>
