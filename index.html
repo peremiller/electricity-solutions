@@ -1168,7 +1168,7 @@ const backdrop = document.getElementById("backdrop");
 let lastTrigger = null;
 function solutionIdFromUrl() {
   const raw = new URL(window.location.href).searchParams.get("solution");
-  if (!raw || !/^[1-9]\\d*$/.test(raw)) return null;
+  if (!raw || !/^[1-9]\d*$/.test(raw)) return null;
   const id = Number(raw);
   return Number.isSafeInteger(id) && id <= SOLUTIONS.length ? id : null;
 }
