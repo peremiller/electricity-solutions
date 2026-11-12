@@ -103,7 +103,10 @@ test("two themes, three viewport sizes, filters, empty state, table and escape a
       if (theme === "light") await page.locator("#themeToggle").click();
       assert.equal(await page.evaluate(() => document.documentElement.getAttribute("data-theme") === "light"), theme === "light");
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-      assert.ok(overflow <= 2, `horizontal overflow at ${width}px in ${theme} mode: ${overflow}`);
+      const offenders = overflow > 2 ? await page.evaluate(() => [...document.querySelectorAll("*")]
+        .filter(el => { const b = el.getBoundingClientRect(); return b.width && b.right > window.innerWidth + 2 && getComputedStyle(el).position !== "fixed"; })
+        .slice(0, 6).map(el => ({ tag: el.tagName.toLowerCase(), id: el.id, className: typeof el.className === "string" ? el.className : "", right: Math.round(el.getBoundingClientRect().right) }))) : [];
+      assert.ok(overflow <= 2, `horizontal overflow at ${width}px in ${theme} mode: ${overflow}; offenders: ${JSON.stringify(offenders)}`);
       const readable = await page.locator("body").evaluate(el => getComputedStyle(el).color);
       assert.notEqual(readable, "rgba(0, 0, 0, 0)");
     }
