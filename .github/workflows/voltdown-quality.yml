@@ -1,0 +1,24 @@
+name: VoltDown Web Quality
+on:
+  push:
+    paths:
+      - "index.html"
+      - "tests/voltdown-ui.mjs"
+      - ".github/workflows/voltdown-quality.yml"
+  workflow_dispatch:
+
+jobs:
+  browser-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install isolated Chromium test dependency
+        run: |
+          npm install --no-save --no-package-lock playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Run JavaScript syntax, storage, routing and real responsive browser tests
+        run: node --test tests/voltdown-ui.mjs
