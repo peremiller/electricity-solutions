@@ -131,7 +131,7 @@ function parseColor(value) {
   if (/^#[0-9a-f]{6}$/i.test(value)) {
     return [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16));
   }
-  const match = /^rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/.exec(value);
+  const match = value.match(/^rgba?[(]([0-9]+),[ ]*([0-9]+),[ ]*([0-9]+)/);
   assert.ok(match, `Unexpected color: ${value}`);
   return match.slice(1, 4).map(Number);
 }
