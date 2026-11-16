@@ -124,3 +124,51 @@ test("two themes, three viewport sizes, filters, empty state, table and escape a
     await page.close();
   }
 });
+
+// Contrast regression uses actual computed Chromium colors in both themes,
+// including both ends of the card background gradient and the selected chip.
+function parseColor(value) {
+  if (/^#[0-9a-f]{6}$/i.test(value)) {
+    return [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16));
+  }
+  const match = /^rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/.exec(value);
+  assert.ok(match, `Unexpected color: ${value}`);
+  return match.slice(1, 4).map(Number);
+}
+function contrast(a, b) {
+  const luminance = value => {
+    const [r, g, blue] = parseColor(value).map(v => v / 255)
+      .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * blue;
+  };
+  const x = luminance(a), y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+test("small solution IDs, category link color, and selected chips meet 4.5:1 in both themes", async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(base);
+    for (const theme of ["dark", "light"]) {
+      if (theme === "light") await page.locator("#themeToggle").click();
+      const actual = await page.evaluate(() => {
+        const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return {
+          idText: getComputedStyle(document.querySelector("#grid .idtag")).color,
+          chipText: getComputedStyle(document.querySelector(".chip.active")).color,
+          card: token("--card"), card2: token("--card-2"),
+          category: token("--accent-2")
+        };
+      });
+      for (const background of [actual.card, actual.card2]) {
+        assert.ok(contrast(actual.idText, background) >= 4.5,
+          `${theme}: small ID text contrast below 4.5 on ${background}`);
+        assert.ok(contrast(actual.category, background) >= 4.5,
+          `${theme}: accent category color contrast below 4.5 on ${background}`);
+      }
+      assert.ok(contrast(actual.chipText, actual.category) >= 4.5,
+        `${theme}: active category chip text below 4.5 contrast`);
+    }
+  } finally { await page.close(); }
+});
+
