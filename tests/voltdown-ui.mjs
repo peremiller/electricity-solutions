@@ -172,3 +172,32 @@ test("small solution IDs, category link color, and selected chips meet 4.5:1 in 
   } finally { await page.close(); }
 });
 
+
+test("keyboard focus rings remain visible for view, theme and dialog controls in both themes", async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(base);
+    for (const theme of ["dark", "light"]) {
+      if (theme === "light") await page.locator("#themeToggle").click();
+      await page.keyboard.press("Tab");
+      for (const selector of ["#viewTable", "#themeToggle", ".chip"]) {
+        const target = page.locator(selector).first();
+        await target.focus();
+        const css = await target.evaluate(el => {
+          const style = getComputedStyle(el);
+          return { outlineStyle: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth) };
+        });
+        assert.equal(css.outlineStyle, "solid", `${theme} ${selector} should show keyboard focus`);
+        assert.ok(css.outlineWidth >= 2, `${theme} ${selector} focus ring should be at least 2px`);
+      }
+      await page.locator("#grid .card").first().click();
+      assert.equal(await page.locator("#detail.open").count(), 1);
+      await page.keyboard.press("Tab");
+      const step = page.locator(".steps-toggle").first();
+      await step.focus();
+      const width = await step.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth));
+      assert.ok(width >= 2, `${theme}: expanded detail action must have a visible focus ring`);
+      await page.keyboard.press("Escape");
+    }
+  } finally { await page.close(); }
+});
