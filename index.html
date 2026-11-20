@@ -1066,21 +1066,39 @@ function renderChips() {
 }
 
 /* ---------- Events ---------- */
+// Category chips are recreated on selection/expansion. Restore focus to the
+// replacement control instead of unexpectedly dropping keyboard users to body.
+function restoreChipFocus(selector) {
+  const replacement = document.querySelector(selector);
+  if (replacement) replacement.focus({ preventScroll: true });
+}
+function announceFilterCount() {
+  document.getElementById("srAnnounce").textContent =
+    `${window._fullCount.toLocaleString()} solutions match your filters.`;
+}
 document.getElementById("cats").addEventListener("click", e => {
   const toggle = e.target.closest(".chip-toggle");
-  if (toggle) { chipsExpanded = !chipsExpanded; renderChips(); return; }
+  if (toggle) {
+    chipsExpanded = !chipsExpanded;
+    renderChips();
+    restoreChipFocus("#cats .chip-toggle");
+    return;
+  }
   const chip = e.target.closest(".chip"); if (!chip) return;
   activeCat = chip.dataset.cat; renderLimit = 60;
   renderChips(); render();
+  restoreChipFocus(Array.from(document.querySelectorAll("#cats .chip[data-cat]"))
+    .find(item => item.dataset.cat === activeCat) ? "#cats .chip.active" : "#cats .chip");
+  announceFilterCount();
 });
 document.getElementById("search").addEventListener("input", e => {
-  searchQ = e.target.value.trim().toLowerCase(); renderLimit = 60; render();
+  searchQ = e.target.value.trim().toLowerCase(); renderLimit = 60; render(); announceFilterCount();
 });
 document.getElementById("statusFilter").addEventListener("change", e => {
-  statusFilter = e.target.value; renderLimit = 60; render();
+  statusFilter = e.target.value; renderLimit = 60; render(); announceFilterCount();
 });
 document.getElementById("sort").addEventListener("change", e => {
-  sortMode = e.target.value; renderLimit = 60; render();
+  sortMode = e.target.value; renderLimit = 60; render(); announceFilterCount();
 });
 function setView(mode) {
   viewMode = mode; renderLimit = 60;
