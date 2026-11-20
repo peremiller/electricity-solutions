@@ -201,3 +201,33 @@ test("keyboard focus rings remain visible for view, theme and dialog controls in
     }
   } finally { await page.close(); }
 });
+
+test("keyboard-selected category and expanding chips retain focus; filtered count is announced", async () => {
+  for (const theme of ["dark", "light"]) {
+    const page = await browser.newPage({ viewport: { width: 320, height: 800 } });
+    try {
+      await page.goto(base);
+      if (theme === "light") await page.locator("#themeToggle").click();
+      const category = page.locator('#cats .chip[data-cat]:not([data-cat=""])').first();
+      const key = await category.getAttribute("data-cat");
+      await category.focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await page.evaluate(() => document.activeElement?.dataset.cat), key,
+        `${theme}: replacing the active category chip must not lose keyboard focus`);
+      assert.match(await page.locator("#srAnnounce").textContent(), /solutions match your filters/);
+      const toggle = page.locator("#cats .chip-toggle");
+      if (await toggle.count()) {
+        await toggle.focus();
+        await page.keyboard.press("Enter");
+        assert.equal(await toggle.evaluate(el => el === document.activeElement), true,
+          `${theme}: expanding categories must restore focus`);
+        await page.keyboard.press("Enter");
+        assert.equal(await toggle.evaluate(el => el === document.activeElement), true,
+          `${theme}: collapsing categories must restore focus`);
+      }
+      await page.locator("#search").fill("__unmatched_category_query__");
+      assert.match(await page.locator("#srAnnounce").textContent(), /^0 solutions match your filters\.$/);
+      assert.equal(await page.locator("#empty").isVisible(), true);
+    } finally { await page.close(); }
+  }
+});
